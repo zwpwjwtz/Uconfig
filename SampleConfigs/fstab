@@ -1,0 +1,13 @@
+# /dev/sda1
+UUID=1999-2A00 /boot/efi vfat defaults 0 0
+
+# /dev/sda10
+UUID=755e3aa6-20b1-4d07-8015-c721e197756e	/         	ext4      	rw,relatime,data=ordered	0 1
+
+# /dev/sda9
+UUID=16bdad86-0040-4bc4-e5ff-0db0df317a29	/home     	ext4      	rw,relatime,data=ordered	0 2
+
+# /dev/sda4
+UUID=5357593f-b51d-4bb8-8cf3-1937e93d81f3	/media/user/Programme	ext4	defaults	0	2
+
+tmpfs	/tmp	tmpfs	defaults	0	0

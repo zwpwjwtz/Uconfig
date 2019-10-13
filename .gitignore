@@ -1,0 +1,6 @@
+*.bak
+Uconfig
+*.o
+moc*
+ui*.h
+*.pro.user
