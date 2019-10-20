@@ -26,8 +26,10 @@ public:
                    bool recursive = false);
     void deleteEntry(UconfigEntry* entry);
 
-    UconfigEntry* searchEntryByName(UconfigEntry* parent,
-                                    const char* name);
+    UconfigEntry* searchEntryByName(const char* name,
+                                    UconfigEntry* parent);
+    UconfigKey* searchKeyByName(const char* name,
+                                UconfigEntry* entry);
 };
 
 #endif

@@ -32,7 +32,7 @@ public:
     char* fileName();
     int configType();
 
-    // Warning: When the newEntry is filled, existing resource 
+    // Warning: When the newEntry is filled, existing resource
     // in the newEntry will NOT be free!
     bool getEntry(UconfigEntry* newEntry,
                   const char* entryName = NULL,
@@ -45,6 +45,22 @@ public:
     bool modifyEntry(const UconfigEntry* newEntry,
                      const char* entryName,
                      const char* parentName = NULL);
+
+    // Warning: When the newKey is filled, existing resource
+    // in the newKey will NOT be free!
+    bool getKey(UconfigKey* newKey,
+                const char* keyName,
+                const char* entryName,
+                const char* parentName = NULL);
+    bool addKey(UconfigKey* newKey,
+                const char* entryName,
+                const char* parentName = NULL);
+    bool deleteKey(const char* keyName,
+                   const char* entryName,
+                   const char* parentName = NULL);
+    bool modifyKey(UconfigKey* newKey,
+                   const char* entryName,
+                   const char* parentName = NULL);
 };
 
 #endif

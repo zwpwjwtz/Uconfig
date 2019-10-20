@@ -32,31 +32,18 @@ bool UconfigFile::getEntry(UconfigEntry* newEntry,
 {
     if (!newEntry)
         return false;
-    if (strlen(entryName) < 1)
-        return d_ptr->rootEntry;
 
-    UconfigEntry* parent = d_ptr->rootEntry;
-    if (parentName)
-    {
-        parent = d_ptr->searchEntryByName(parent, parentName);
-        if (!parent)
-            return false;
-    }
-
-    UconfigEntry* entry = d_ptr->searchEntryByName(parent, entryName);
+    UconfigEntry* parent = d_ptr->searchEntryByName(parentName, NULL);
+    UconfigEntry* entry = d_ptr->searchEntryByName(entryName, parent);
     return d_ptr->copyEntry(newEntry, entry, recursive);
 }
 
 bool UconfigFile::addEntry(const UconfigEntry* newEntry,
                            const char* parentName)
 {
-    UconfigEntry* parent = d_ptr->rootEntry;
-    if (parentName)
-    {
-        parent = d_ptr->searchEntryByName(parent, parentName);
-        if (!parent)
+    UconfigEntry* parent = d_ptr->searchEntryByName(parentName, NULL);
+    if (!parent)
             return false;
-    }
 
     // Create a new list for the subentries
     int entryCount = parent->subentryCount;
@@ -72,7 +59,7 @@ bool UconfigFile::addEntry(const UconfigEntry* newEntry,
     if (!d_ptr->copyEntry(newEntryList[entryCount], newEntry, true))
         return false;
 
-    // Update the list
+    // Update the list for the parent
     if (parent->subentries)
         free(parent->subentries);
     parent->subentries = newEntryList;
@@ -84,18 +71,13 @@ bool UconfigFile::addEntry(const UconfigEntry* newEntry,
 bool UconfigFile::deleteEntry(const char* entryName,
                               const char* parentName)
 {
-    UconfigEntry* parent = d_ptr->rootEntry;
-    if (parentName)
-    {
-        parent = d_ptr->searchEntryByName(parent, parentName);
-        if (!parent)
-            return false;
-    }
-
-    UconfigEntry* entry = d_ptr->searchEntryByName(parent, entryName);
+    UconfigEntry* parent = d_ptr->searchEntryByName(parentName, NULL);
+    UconfigEntry* entry = d_ptr->searchEntryByName(entryName, parent);
+    if (!entry)
+        return false;
     d_ptr->deleteEntry(entry);
 
-    // Update the subentry list of parent
+    // Create a new list for the subentries
     int entryCount = parent->subentryCount;
     UconfigEntry** newEntryList =
             (UconfigEntry**)malloc(sizeof(UconfigEntry*) * (entryCount - 1));
@@ -106,7 +88,7 @@ bool UconfigFile::deleteEntry(const char* entryName,
             newEntryList[j++] = parent->subentries[i];
     }
 
-    // Update the list
+    // Update the list for the parent
     if (parent->subentries)
         free(parent->subentries);
     parent->subentries = newEntryList;
@@ -116,21 +98,15 @@ bool UconfigFile::deleteEntry(const char* entryName,
 }
 
 bool UconfigFile::modifyEntry(const UconfigEntry* newEntry,
-                               const char* entryName,
-                               const char* parentName)
+                              const char* entryName,
+                              const char* parentName)
 {
-    UconfigEntry* parent = d_ptr->rootEntry;
-    if (parentName)
-    {
-        parent = d_ptr->searchEntryByName(parent, parentName);
-        if (!parent)
-            return false;
-    }
-
-    UconfigEntry* entry = d_ptr->searchEntryByName(parent, entryName);
+    UconfigEntry* parent = d_ptr->searchEntryByName(parentName, NULL);
+    UconfigEntry* entry = d_ptr->searchEntryByName(entryName, parent);
     if (!entry)
         return false;
 
+    // Duplicate the given entry
     UconfigEntry* tempEntry = (UconfigEntry*)malloc(sizeof(UconfigEntry));
     if (!d_ptr->copyEntry(tempEntry, newEntry, true))
         return false;
@@ -149,6 +125,129 @@ bool UconfigFile::modifyEntry(const UconfigEntry* newEntry,
     // We shall never reach here
     return false;
 }
+
+bool UconfigFile::getKey(UconfigKey* newKey,
+                         const char* keyName,
+                         const char* entryName,
+                         const char* parentName)
+{
+    if (!newKey)
+        return false;
+
+    // Find the entry first
+    UconfigEntry* parent = d_ptr->searchEntryByName(parentName, NULL);
+    UconfigEntry* entry = d_ptr->searchEntryByName(entryName, parent);
+    if (!entry || !entry->keys)
+        return false;
+
+    // Then find the key
+    UconfigKey* key = d_ptr->searchKeyByName(keyName, entry);
+    return d_ptr->copyKey(newKey, key);
+}
+
+bool UconfigFile::addKey(UconfigKey* newKey,
+                         const char* entryName,
+                         const char* parentName)
+{
+    // Find the entry first
+    UconfigEntry* parent = d_ptr->searchEntryByName(parentName, NULL);
+    UconfigEntry* entry = d_ptr->searchEntryByName(entryName, parent);
+    if (!entry)
+        return false;
+
+    // Create a new list for the keys
+    int keyCount = entry->keyCount;
+    UconfigKey** newKeyList =
+                    (UconfigKey**)malloc(sizeof(UconfigKey) * (keyCount + 1));
+    if (keyCount > 0)
+        memcpy(newKeyList,
+               entry->keys,
+               sizeof(UconfigKey*) * keyCount);
+
+    // Insert the new key into list
+    newKeyList[keyCount] = (UconfigKey*)malloc(sizeof(UconfigKey));
+    if (!d_ptr->copyKey(newKeyList[keyCount], newKey))
+        return false;
+
+    // Update the key list for the entry
+    if (entry->keys)
+        free(entry->keys);
+    entry->keys = newKeyList;
+    entry->keyCount++;
+
+    return true;
+}
+
+bool UconfigFile::deleteKey(const char* keyName,
+                            const char* entryName,
+                            const char* parentName)
+{
+    // Find the entry first
+    UconfigEntry* parent = d_ptr->searchEntryByName(parentName, NULL);
+    UconfigEntry* entry = d_ptr->searchEntryByName(entryName, parent);
+    if (!entry || !entry->keys)
+        return false;
+
+    // Then find the key
+    UconfigKey* key = d_ptr->searchKeyByName(keyName, entry);
+    if (!key)
+        return false;
+
+    // Create a new list for the keys
+    int keyCount = entry->keyCount;
+    UconfigKey** newKeyList =
+            (UconfigKey**)malloc(sizeof(UconfigKey*) * (keyCount - 1));
+    int i, j = 0;
+    for (i=0; i<keyCount; i++)
+    {
+        if (entry->keys[i] == key)
+            newKeyList[j++] = entry->keys[i];
+    }
+
+    // Update the key list for the entry
+    if (entry->keys)
+        free(entry->keys);
+    entry->keys = newKeyList;
+    entry->keyCount--;
+
+    return true;
+}
+
+bool UconfigFile::modifyKey(UconfigKey* newKey,
+                            const char* entryName,
+                            const char* parentName)
+{
+    // Find the entry first
+    UconfigEntry* parent = d_ptr->searchEntryByName(parentName, NULL);
+    UconfigEntry* entry = d_ptr->searchEntryByName(entryName, parent);
+    if (!entry || !entry->keys)
+        return false;
+
+    // Then find the key
+    UconfigKey* key = d_ptr->searchKeyByName(newKey->name, entry);
+    if (!key)
+        return false;
+
+    // Duplicate the given key
+    UconfigKey* tempKey = (UconfigKey*)malloc(sizeof(UconfigKey));
+    if (!d_ptr->copyKey(tempKey, newKey))
+        return false;
+
+    // Update the key list for the entry
+    for (int i=0; i<entry->keyCount; i++)
+    {
+        if (entry->keys[i] == key)
+        {
+            entry->keys[i] = tempKey;
+            d_ptr->deleteKey(key);
+            return true;
+        }
+    }
+
+    // We shall never reach here
+    return false;
+}
+
 
 UconfigFilePrivate::UconfigFilePrivate(UconfigFile* parent)
 {
@@ -227,20 +326,20 @@ bool UconfigFilePrivate::copyEntry(UconfigEntry* dest,
     }
     dest->keys = newKeys;
 
-    // Deep copy of subentries
-    UconfigEntry** newEntries =
-            (UconfigEntry**)malloc(sizeof(UconfigEntry*) * src->subentryCount);
-    for (i=0; i<src->subentryCount; i++)
+    if (recursive)
     {
-        if (recursive)
+        // Deep copy of subentries
+        UconfigEntry** newEntries =
+            (UconfigEntry**)malloc(sizeof(UconfigEntry*) * src->subentryCount);
+        for (i=0; i<src->subentryCount; i++)
         {
             newEntries[i] = (UconfigEntry*)malloc(sizeof(UconfigEntry));
             copyEntry(newEntries[i], src->subentries[i], true);
         }
-        else
-            newEntries[i] = NULL;
+        dest->subentries = newEntries;
     }
-    dest->subentries = newEntries;
+    else
+        dest->subentries = NULL;
 
     return true;
 }
@@ -264,9 +363,17 @@ void UconfigFilePrivate::deleteEntry(UconfigEntry* entry)
     free(entry);
 }
 
-UconfigEntry* UconfigFilePrivate::searchEntryByName(UconfigEntry* parent,
-                                                    const char* name)
+// Find an entry with given name under a given parent recursively
+// Return NULL if no such entry can be found
+UconfigEntry* UconfigFilePrivate::searchEntryByName(const char* name,
+                                                    UconfigEntry* parent)
 {
+    if (!name || strlen(name) < 1)
+        return rootEntry;
+
+    if (!parent)
+        parent = rootEntry;
+
     // Recursive search of an entry with given name and
     // attached to a specific parent
     if (parent && parent->subentries)
@@ -282,11 +389,31 @@ UconfigEntry* UconfigFilePrivate::searchEntryByName(UconfigEntry* parent,
         UconfigEntry* entry;
         for (int i=0; i<parent->subentryCount; i++)
         {
-            entry = searchEntryByName(parent->subentries[i], name);
+            entry = searchEntryByName(name, parent->subentries[i]);
             if (entry)
                 return entry;
         }
     }
     // If still no found, return a NULL pointer
     return NULL;
+}
+
+// Find a key with given name under a given entry
+// Return NULL if no such key can be found
+UconfigKey* UconfigFilePrivate::searchKeyByName(const char* name,
+                                                UconfigEntry* entry)
+{
+    if (!entry || !entry->keys)
+        return NULL;
+
+    UconfigKey* key = NULL;
+    for (int i=0; i<entry->keyCount; i++)
+    {
+        if (entry->keys[i] && strcmp(entry->keys[i]->name, name) == 0)
+        {
+            key = entry->keys[i];
+            break;
+        }
+    }
+    return key;
 }
