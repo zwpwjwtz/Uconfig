@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <string.h>
 #include "uconfigfile_p.h"
 
@@ -15,7 +14,7 @@ UconfigFile::~UconfigFile()
 
 char* UconfigFile::fileName()
 {
-    char* buf = (char*)malloc(sizeof(char) * (strlen(d_ptr->fileName) + 1));
+    char* buf = new char[strlen(d_ptr->fileName) + 1];
     strcpy(buf, d_ptr->fileName);
     return buf;
 }
@@ -47,21 +46,20 @@ bool UconfigFile::addEntry(const UconfigEntry* newEntry,
 
     // Create a new list for the subentries
     int entryCount = parent->subentryCount;
-    UconfigEntry** newEntryList =
-            (UconfigEntry**)malloc(sizeof(UconfigEntry*) * (entryCount + 1));
+    UconfigEntry** newEntryList = new UconfigEntry*[entryCount + 1];
     if (entryCount > 0)
         memcpy(newEntryList,
                parent->subentries,
                sizeof(UconfigEntry*) * entryCount);
 
     // Insert the new entry into the list
-    newEntryList[entryCount] = (UconfigEntry*)malloc(sizeof(UconfigEntry));
+    newEntryList[entryCount] = new UconfigEntry;
     if (!d_ptr->copyEntry(newEntryList[entryCount], newEntry, true))
         return false;
 
     // Update the list for the parent
     if (parent->subentries)
-        free(parent->subentries);
+        delete parent->subentries;
     parent->subentries = newEntryList;
     parent->subentryCount++;
 
@@ -79,8 +77,7 @@ bool UconfigFile::deleteEntry(const char* entryName,
 
     // Create a new list for the subentries
     int entryCount = parent->subentryCount;
-    UconfigEntry** newEntryList =
-            (UconfigEntry**)malloc(sizeof(UconfigEntry*) * (entryCount - 1));
+    UconfigEntry** newEntryList = new UconfigEntry*[entryCount - 1];
     int i, j = 0;
     for (i=0; i<entryCount; i++)
     {
@@ -90,7 +87,7 @@ bool UconfigFile::deleteEntry(const char* entryName,
 
     // Update the list for the parent
     if (parent->subentries)
-        free(parent->subentries);
+        delete parent->subentries;
     parent->subentries = newEntryList;
     parent->subentryCount--;
 
@@ -107,7 +104,7 @@ bool UconfigFile::modifyEntry(const UconfigEntry* newEntry,
         return false;
 
     // Duplicate the given entry
-    UconfigEntry* tempEntry = (UconfigEntry*)malloc(sizeof(UconfigEntry));
+    UconfigEntry* tempEntry = new UconfigEntry;
     if (!d_ptr->copyEntry(tempEntry, newEntry, true))
         return false;
 
@@ -157,21 +154,20 @@ bool UconfigFile::addKey(UconfigKey* newKey,
 
     // Create a new list for the keys
     int keyCount = entry->keyCount;
-    UconfigKey** newKeyList =
-                    (UconfigKey**)malloc(sizeof(UconfigKey) * (keyCount + 1));
+    UconfigKey** newKeyList = new UconfigKey*[keyCount + 1];
     if (keyCount > 0)
         memcpy(newKeyList,
                entry->keys,
                sizeof(UconfigKey*) * keyCount);
 
     // Insert the new key into list
-    newKeyList[keyCount] = (UconfigKey*)malloc(sizeof(UconfigKey));
+    newKeyList[keyCount] = new UconfigKey;
     if (!d_ptr->copyKey(newKeyList[keyCount], newKey))
         return false;
 
     // Update the key list for the entry
     if (entry->keys)
-        free(entry->keys);
+        delete entry->keys;
     entry->keys = newKeyList;
     entry->keyCount++;
 
@@ -195,8 +191,7 @@ bool UconfigFile::deleteKey(const char* keyName,
 
     // Create a new list for the keys
     int keyCount = entry->keyCount;
-    UconfigKey** newKeyList =
-            (UconfigKey**)malloc(sizeof(UconfigKey*) * (keyCount - 1));
+    UconfigKey** newKeyList = new UconfigKey*[keyCount - 1];
     int i, j = 0;
     for (i=0; i<keyCount; i++)
     {
@@ -206,7 +201,7 @@ bool UconfigFile::deleteKey(const char* keyName,
 
     // Update the key list for the entry
     if (entry->keys)
-        free(entry->keys);
+        delete entry->keys;
     entry->keys = newKeyList;
     entry->keyCount--;
 
@@ -229,7 +224,7 @@ bool UconfigFile::modifyKey(UconfigKey* newKey,
         return false;
 
     // Duplicate the given key
-    UconfigKey* tempKey = (UconfigKey*)malloc(sizeof(UconfigKey));
+    UconfigKey* tempKey = new UconfigKey;
     if (!d_ptr->copyKey(tempKey, newKey))
         return false;
 
@@ -254,7 +249,11 @@ UconfigFilePrivate::UconfigFilePrivate(UconfigFile* parent)
     this->p_ptr = parent;
 
     fileName = NULL;
-    rootEntry = (UconfigEntry*)calloc(1, sizeof(UconfigEntry));
+    rootEntry = new UconfigEntry;
+    rootEntry->name = NULL;
+    rootEntry->entryEtype = 0;
+    rootEntry->keyCount = 0;
+    rootEntry->subentryCount = 0;
 }
 
 UconfigFilePrivate::~UconfigFilePrivate()
@@ -273,14 +272,14 @@ bool UconfigFilePrivate::copyKey(UconfigKey* dest, const UconfigKey* src)
     // Deep copy of the name
     if (src->name)
     {
-        dest->name = (char*)malloc(sizeof(char) * (strlen(src->name) + 1));
+        dest->name = new char[strlen(src->name) + 1];
         strcpy(dest->name, src->name);
     }
 
     // Deep copy of the value chunk
     if (src->value)
     {
-        dest->value = (char*)malloc(sizeof(char) * src->valueSize);
+        dest->value = new char[src->valueSize];
         memcpy(dest->value, src->value, src->valueSize);
     }
 
@@ -290,10 +289,10 @@ bool UconfigFilePrivate::copyKey(UconfigKey* dest, const UconfigKey* src)
 void UconfigFilePrivate::deleteKey(UconfigKey* key)
 {
     if (key->name)
-        free(key->name);
+        delete key->name;
     if (key->value)
-        free(key->value);
-    free(key);
+        delete key->value;
+    delete key;
 }
 
 // Deep copy of an entry and its subentries
@@ -311,17 +310,16 @@ bool UconfigFilePrivate::copyEntry(UconfigEntry* dest,
     // Deep copy of the name
     if (src->name)
     {
-        dest->name = (char*)malloc(sizeof(char) * (strlen(src->name) + 1));
+        dest->name = new char[strlen(src->name) + 1];
         strcpy(dest->name, src->name);
     }
 
     // Deep copy of keys
     int i;
-    UconfigKey** newKeys =
-                    (UconfigKey**)malloc(sizeof(UconfigKey*) * src->keyCount);
+    UconfigKey** newKeys = new UconfigKey*[src->keyCount];
     for (i=0; i<src->keyCount; i++)
     {
-        newKeys[i] = (UconfigKey*)malloc(sizeof(UconfigKey));
+        newKeys[i] = new UconfigKey;
         copyKey(newKeys[i], src->keys[i]);
     }
     dest->keys = newKeys;
@@ -329,11 +327,10 @@ bool UconfigFilePrivate::copyEntry(UconfigEntry* dest,
     if (recursive)
     {
         // Deep copy of subentries
-        UconfigEntry** newEntries =
-            (UconfigEntry**)malloc(sizeof(UconfigEntry*) * src->subentryCount);
+        UconfigEntry** newEntries = new UconfigEntry*[src->subentryCount];
         for (i=0; i<src->subentryCount; i++)
         {
-            newEntries[i] = (UconfigEntry*)malloc(sizeof(UconfigEntry));
+            newEntries[i] = new UconfigEntry;
             copyEntry(newEntries[i], src->subentries[i], true);
         }
         dest->subentries = newEntries;
@@ -347,20 +344,20 @@ bool UconfigFilePrivate::copyEntry(UconfigEntry* dest,
 void UconfigFilePrivate::deleteEntry(UconfigEntry* entry)
 {
     if (entry->name)
-        free(entry->name);
+        delete entry->name;
     if (entry->keys)
     {
         for (int i=0; i<entry->keyCount; i++)
             deleteKey(entry->keys[i]);
-        free(entry->keys);
+        delete entry->keys;
     }
     if (entry->subentries)
     {
         for (int i=0; i<entry->subentryCount; i++)
             deleteEntry(entry->subentries[i]);
-        free(entry->subentries);
+        delete entry->subentries;
     }
-    free(entry);
+    delete entry;
 }
 
 // Find an entry with given name under a given parent recursively
