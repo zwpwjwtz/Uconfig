@@ -27,7 +27,7 @@ struct UconfigKey
 struct UconfigEntry
 {
     char* name;
-    int entryEtype; // Used by specific parser
+    int type; // Used by specific parser
 
     int keyCount;   // Number of keys
     int subentryCount; // Number of subentries;

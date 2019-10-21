@@ -7,9 +7,9 @@ bool testFileContainer()
 {
     const char bigdata[] = "235\x00\x00735689067458\x00934890346";
 
-    UconfigEntry e1, e2;
+    UconfigEntry e1;
 
-    e1.name = new char[16];
+    e1.name = new char[32];
     strcpy(e1.name, "TestEntry");
 
     e1.keyCount = 2;
@@ -23,19 +23,24 @@ bool testFileContainer()
     memcpy(e1.keys[1]->value, bigdata, 32);
     e1.subentryCount = 0;
 
+    UconfigEntryObject e(&e1);
     UconfigFile f;
-    f.addEntry(&e1);
+    f.rootEntry.addSubentry(&e);
 
-    f.getEntry(&e2, "TestEntry");
+    UconfigEntryObject e2 = f.rootEntry.searchSubentry("TestEntry");
+    UconfigEntryObject e3(e2);
 
     bool success = true;
-    success &= e1.name != e2.name;
-    success &= strcmp(e1.name, e2.name) == 0;
-    success &= e1.keys != e2.keys;
-    success &= e1.keys[0]->name != e2.keys[0]->name;
-    success &= strcmp(e1.keys[0]->name, e2.keys[0]->name) == 0;
-    success &= e1.keys[1]->value != e2.keys[1]->value;
-    success &= memcmp(e1.keys[0]->name, e2.keys[0]->name, 32) == 0;
+    success &= e1.name != e2.name();
+    success &= strcmp(e1.name, e2.name()) == 0;
+    UconfigKeyObject* newKeys = e2.keys();
+    success &= e1.keys[0]->name != newKeys[0].name();
+    success &= strcmp(e1.keys[0]->name, newKeys[0].name()) == 0;
+    success &= e1.keys[1]->value != newKeys[1].value();
+    success &= memcmp(e1.keys[1]->value, newKeys[1].value(), 32) == 0;
+    UconfigKeyObject* newKeys2 = e3.keys();
+    success &= newKeys2[1].value() != newKeys[1].value();
+    success &= memcmp(newKeys2[1].value(), newKeys[1].value(), 32) == 0;
 
     return success;
 }
