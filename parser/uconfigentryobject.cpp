@@ -21,7 +21,10 @@ UconfigKeyObject::UconfigKeyObject(UconfigKey* key, bool copy)
         if (copy)
             copyKey(&propData, key);
         else
+        {
+            initialize();
             refData = key;
+        }
     }
     else
         initialize();
@@ -55,13 +58,10 @@ void UconfigKeyObject::reset()
     propData.valueType = 0;
 }
 
-char* UconfigKeyObject::name()
+const char* UconfigKeyObject::name() const
 {
-    UconfigKey& data = refData ? *refData : propData;
-
-    char* tempName = new char[strlen(data.name) + 1];
-    strcpy(tempName, data.name);
-    return tempName;
+    const UconfigKey& data = refData ? *refData : propData;
+    return data.name;
 }
 
 void UconfigKeyObject::setName(const char* name)
@@ -80,31 +80,27 @@ void UconfigKeyObject::setName(const char* name)
         data.name = NULL;
 }
 
-UconfigValueType UconfigKeyObject::type()
+UconfigValueType UconfigKeyObject::type() const
 {
-    UconfigKey& data = refData ? *refData : propData;
-
+    const UconfigKey& data = refData ? *refData : propData;
     return UconfigValueType(data.valueType);
 }
 
 void UconfigKeyObject::setType(UconfigValueType type)
 {
     UconfigKey& data = refData ? *refData : propData;
-
     data.valueType = int(type);
 }
 
-char* UconfigKeyObject::value()
+const char* UconfigKeyObject::value() const
 {
-    UconfigKey& data = refData ? *refData : propData;
-
+    const UconfigKey& data = refData ? *refData : propData;
     return data.value;
 }
 
-int UconfigKeyObject::valueSize()
+int UconfigKeyObject::valueSize() const
 {
-    UconfigKey& data = refData ? *refData : propData;
-
+    const UconfigKey& data = refData ? *refData : propData;
     return data.valueSize;
 }
 
@@ -119,9 +115,13 @@ void UconfigKeyObject::setValue(const char* value, int size)
     {
         data.value = new char[size];
         memcpy(data.value, value, size);
+        data.valueSize = size;
     }
     else
+    {
         data.value = NULL;
+        data.valueSize = 0;
+    }
 }
 
 // Deep copy of a key
@@ -142,6 +142,7 @@ bool UconfigKeyObject::copyKey(UconfigKey* dest, const UconfigKey* src)
     {
         dest->value = new char[src->valueSize];
         memcpy(dest->value, src->value, src->valueSize);
+        dest->valueSize = src->valueSize;
     }
 
     return true;
@@ -186,7 +187,10 @@ UconfigEntryObject::UconfigEntryObject(UconfigEntry* entry,
         if (copy)
             copyEntry(&propData, entry, subentries);
         else
+        {
+            initialize();
             refData = entry;
+        }
     }
     else
         initialize();
@@ -235,16 +239,10 @@ void UconfigEntryObject::reset()
     propData.subentryCount = 0;
 }
 
-char* UconfigEntryObject::name() const
+const char* UconfigEntryObject::name() const
 {
     const UconfigEntry& data = refData ? *refData : propData;
-
-    if (!data.name)
-        return NULL;
-
-    char* name = new char[strlen(data.name) + 1];
-    strcpy(name, data.name);
-    return name;
+    return data.name;
 }
 
 void UconfigEntryObject::setName(const char* name)
@@ -297,12 +295,17 @@ UconfigKeyObject* UconfigEntryObject::keys()
 // Return NULL if no such key can be found
 UconfigKeyObject UconfigEntryObject::searchKey(const char* keyName)
 {
+    if (!keyName)
+        return UconfigKeyObject();
+
     UconfigEntry& entry = refData ? *refData : propData;
 
     UconfigKey* key = NULL;
     for (int i=0; i<entry.keyCount; i++)
     {
-        if (entry.keys[i] && strcmp(entry.keys[i]->name, keyName) == 0)
+        if (entry.keys[i] &&
+            entry.keys[i]->name &&
+            strcmp(entry.keys[i]->name, keyName) == 0)
         {
             key = entry.keys[i];
             break;
@@ -458,6 +461,8 @@ bool UconfigEntryObject::addSubentry(const UconfigEntryObject* newEntry)
     newEntryList[entryCount] = new UconfigEntry;
     if (!copyEntry(newEntryList[entryCount], newData, true))
         return false;
+    else
+        newEntryList[entryCount]->parentEntry = &entry;
 
     // Update the list for the parent
     if (entry.subentries)
@@ -516,6 +521,7 @@ bool UconfigEntryObject::modifySubentry(const char* entryName,
         if (entry->subentries[i] == entry)
         {
             entry->subentries[i] = tempEntry;
+            tempEntry->parentEntry = entry;
             deleteEntry(entry);
             return true;
         }
@@ -618,7 +624,9 @@ UconfigKey* Uconfig_searchKeyByName(const char* name, UconfigEntry* entry)
     UconfigKey* key = NULL;
     for (int i=0; i<entry->keyCount; i++)
     {
-        if (entry->keys[i] && strcmp(entry->keys[i]->name, name) == 0)
+        if (entry->keys[i] &&
+            entry->keys[i]->name &&
+            strcmp(entry->keys[i]->name, name) == 0)
         {
             key = entry->keys[i];
             break;
@@ -646,7 +654,8 @@ UconfigEntry* Uconfig_searchEntryByName(const char* name,
         // See if one of the subentries's name match the search
         for (int i=0; i<parent->subentryCount; i++)
         {
-            if (strcmp(parent->subentries[i]->name, name) == 0)
+            if (parent->subentries[i]->name &&
+                strcmp(parent->subentries[i]->name, name) == 0)
                 return parent->subentries[i];
         }
 

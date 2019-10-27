@@ -30,12 +30,18 @@ DEFINES += QT_DEPRECATED_WARNINGS APP_VERSION=\\\"$$VERSION\\\"
 
 SOURCES += test.cpp \
     parser/uconfigfile.cpp \
-    parser/uconfigentryobject.cpp
+    parser/uconfigentryobject.cpp \
+    parser/uconfigini.cpp \
+    parser/utils.cpp
 
 HEADERS  += \
     parser/uconfigentry.h \
     parser/uconfigfile.h \
-    parser/uconfigentryobject.h
+    parser/uconfigentryobject.h \
+    parser/uconfigini.h \
+    parser/uconfigio.h \
+    parser/uconfigfile_metadata.h \
+    parser/utils.h
 
 target.path = $${PREFIX}/bin/
 

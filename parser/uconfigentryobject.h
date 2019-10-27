@@ -20,14 +20,14 @@ public:
 
     void reset();
 
-    char* name();
+    const char* name() const;
     void setName(const char* name);
 
-    UconfigValueType type();
+    UconfigValueType type() const;
     void setType(UconfigValueType type);
 
-    char* value();
-    int valueSize();
+    const char* value() const;
+    int valueSize() const;
     void setValue(const char* value, int size);
 
     static bool copyKey(UconfigKey* dest, const UconfigKey* src);
@@ -56,7 +56,7 @@ public:
 
     void reset();
 
-    char* name() const;
+    const char* name() const;
     void setName(const char* name);
 
     int type() const;

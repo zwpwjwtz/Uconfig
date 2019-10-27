@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
-#include "parser/uconfigfile.h"
+#include "parser/uconfigfile_metadata.h"
+#include "parser/uconfigini.h"
 
 
 bool testFileContainer()
@@ -45,11 +46,41 @@ bool testFileContainer()
     return success;
 }
 
+bool testParserINI()
+{
+    const char* filename = "./SampleConfigs/QMLPlayer.ini";
+
+    UconfigFile config;
+    if (!UconfigINI::readUconfig(filename, &config))
+        return false;
+
+    bool success = true;
+    success &=
+        strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_FILENAME).value(),
+               filename) == 0;
+    success &=
+        config.rootEntry.searchSubentry("avfilterAudio").subentryCount() == 2;
+    success &=
+        strcmp(config.rootEntry.searchSubentry("capture").searchSubentry("dir")
+                     .keys()[0].value(), "/home/user") == 0;
+    success &=
+        strcmp(config.rootEntry.searchSubentry("decoder").subentries()[0]
+                     .keys()[0].name(), "video\\priority") == 0;
+
+    return success;
+}
+
 int main(int argc, char *argv[])
 {
     if (testFileContainer())
         printf("testFileContainer() passed.\n");
     else
         printf("testFileContainer() failed!\n");
+
+    if (testParserINI())
+        printf("testParserINI() passed.\n");
+    else
+        printf("testParserINI() failed!\n");
+
     return 0;
 }
