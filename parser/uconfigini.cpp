@@ -1,16 +1,15 @@
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <string.h>
 #include "uconfigini.h"
 #include "uconfigfile_metadata.h"
 #include "utils.h"
 
-#define UCONFIG_IO_INI_ENTRY_UNKNOWN    0
-#define UCONFIG_IO_INI_ENTRY_NORMAL     1
-#define UCONFIG_IO_INI_ENTRY_COMMENT    2
-#define UCONFIG_IO_INI_SUBENTRY_KEYVAL  3
-#define UCONFIG_IO_INI_SUBENTRY_COMMENT 4
 #define UCONFIG_IO_INI_BUFFER_MAXLEN    16384
 
+
+bool Uconfig_fwriteEntry(FILE* file,
+                         UconfigEntryObject& entry,
+                         const char* lineDelimitor = NULL);
 
 bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
 {
@@ -23,7 +22,7 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
 
     UconfigEntryObject tempEntry, tempSubentry;
     UconfigKeyObject tempKey;
-    tempEntry.setType(UCONFIG_IO_INI_ENTRY_UNKNOWN);
+    tempEntry.setType(UconfigINI::UnknownEntry);
 
     // Read INI file and parse its content line by line
     long unsigned int readlen;
@@ -45,7 +44,7 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
         // See if the line opens a new entry
         if (buffer[0] == '[' && buffer[readlen - 1] == ']')
         {
-            if (tempEntry.type() != UCONFIG_IO_INI_ENTRY_UNKNOWN)
+            if (tempEntry.type() != UconfigINI::UnknownEntry)
             {
                 // Save previous entry
                 config->rootEntry.addSubentry(&tempEntry);
@@ -53,7 +52,7 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
 
             // Create a new entry
             tempEntry.reset();
-            tempEntry.setType(UCONFIG_IO_INI_ENTRY_NORMAL);
+            tempEntry.setType(UconfigINI::NormalEntry);
 
             // Set entry's name
             entryName = new char[readlen - 1];
@@ -64,7 +63,7 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
             // See if the line contains a comment
             if (parseLineComment(buffer, tempKey, readlen))
             {
-                tempSubentry.setType(UCONFIG_IO_INI_SUBENTRY_COMMENT);
+                tempSubentry.setType(UconfigINI::Comment);
                 tempSubentry.addKey(&tempKey);
             }
         }
@@ -73,13 +72,20 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
             // See if the line contains an expression like KEY=VALUE
             if (parseExpKeyValue(buffer, tempKey, readlen))
             {
-                tempSubentry.setType(UCONFIG_IO_INI_SUBENTRY_KEYVAL);
+                tempSubentry.setType(UconfigINI::KeyVal);
                 tempSubentry.addKey(&tempKey);
             }
 
-            // See if the line is a comment
+            // See if the line contains a comment
             if (parseLineComment(buffer, tempKey, readlen))
+            {
                 tempSubentry.addKey(&tempKey);
+                if (tempSubentry.keyCount() < 2)
+                {
+                    // Standalone comment line
+                    tempSubentry.setType(UconfigINI::Comment);
+                }
+            }
 
             if (tempSubentry.keyCount() < 1)
             {
@@ -88,29 +94,30 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
                 tempKey.setValue(buffer, readlen);
                 tempKey.setType(UconfigValueType::Raw);
                 tempSubentry.addKey(&tempKey);
+                tempSubentry.setType(UconfigINI::Raw);
             }
         }
 
         if (tempSubentry.keyCount() > 0)
         {
-            if (tempEntry.type() == UCONFIG_IO_INI_ENTRY_NORMAL)
+            if (tempEntry.type() == UconfigINI::NormalEntry)
             {
                 // Normal entry, use the name of the first key as its name
                 tempSubentry.setName(tempSubentry.keys()[0].name());
                 tempEntry.addSubentry(&tempSubentry);
-                tempSubentry.reset();
             }
             else
             {
-                // Comment entry (at the beginning of the file)
-                tempSubentry.setType(UCONFIG_IO_INI_SUBENTRY_COMMENT);
+                // Standalone comment entry or raw content block
+                // (at the beginning of the file)
                 tempEntry.addSubentry(&tempSubentry);
-                tempEntry.setType(UCONFIG_IO_INI_ENTRY_COMMENT);
+                tempEntry.setType(UconfigINI::CommentEntry);
             }
+            tempSubentry.reset();
         }
     }
 
-    if (tempEntry.type() != UCONFIG_IO_INI_ENTRY_UNKNOWN)
+    if (tempEntry.type() != UconfigINI::UnknownEntry)
     {
         // Save the last entry
         config->rootEntry.addSubentry(&tempEntry);
@@ -138,9 +145,20 @@ bool UconfigINI::writeUconfig(const char* filename, UconfigFile* config)
     if (!config)
         return false;
 
-    FILE* outputFile = fopen(filename, "r+");
+    FILE* outputFile = fopen(filename, "w");
     if (!outputFile)
         return false;
+
+    UconfigEntryObject* entryList = config->rootEntry.subentries();
+    for (int i=0; i<config->rootEntry.subentryCount(); i++)
+    {
+        if (!Uconfig_fwriteEntry(outputFile, entryList[i]))
+        {
+            delete[] entryList;
+            return false;
+        }
+    }
+    delete[] entryList;
 
     fclose(outputFile);
     return true;
@@ -173,10 +191,11 @@ bool UconfigINI::parseLineComment(const char* expression,
                                   UconfigKeyObject& key,
                                   int length)
 {
+    // See if the comment delimitor appears in a right place
     int p = Uconfig_strpos(expression, "#");
-    if (p < 0 || p >= length - 1)
+    if (p < 0 || (p > 0 && expression[p - 1] != ' ') || p >= length - 1)
         p = Uconfig_strpos(expression, ";");
-    if (p < 0 || p >= length - 1)
+    if (p < 0 || (p > 0 && expression[p - 1] != ' ') || p >= length - 1)
         return false;
 
     key.reset();
@@ -185,7 +204,92 @@ bool UconfigINI::parseLineComment(const char* expression,
         length = strlen(expression);
     if (p < length - 1)
     {
-        key.setValue(&expression[p + 1], length - p);
+        key.setValue(&expression[p + 1], length - p - 1);
     }
+    return true;
+}
+
+bool Uconfig_fwriteEntry(FILE* file,
+                         UconfigEntryObject& entry,
+                         const char* lineDelimitor)
+{
+    if (entry.subentryCount() < 1)
+        return true;
+
+    int i, j;
+    int entryType = entry.type();
+    UconfigKeyObject* keyList = NULL;
+    UconfigEntryObject* subentryList = entry.subentries();
+    const char* delimitor = lineDelimitor ? lineDelimitor : "\n";
+
+    if (entryType == UconfigINI::NormalEntry)
+    {
+        // Write entry header
+        fwrite("[", sizeof(char), 1, file);
+        fwrite(entry.name(), strlen(entry.name()), 1, file);
+        fwrite("]", sizeof(char), 1, file);
+        fwrite(delimitor, sizeof(char), 1, file);
+
+        for (i=0; i<entry.subentryCount(); i++)
+        {
+            // Add leading ";" for each comment line
+            if (subentryList[i].type() == UconfigINI::Comment)
+                fwrite(";", sizeof(char), 1, file);
+
+            if (subentryList[i].keyCount() > 0)
+            {
+                keyList = subentryList[i].keys();
+                for (j=0; j<subentryList[i].keyCount(); j++)
+                {
+                    // Take the first key as a key-value pair
+                    if (subentryList[i].type() == UconfigINI::KeyVal && j == 0)
+                    {
+                        fwrite(keyList[0].name(),
+                               sizeof(char),
+                               strlen(keyList[0].name()),
+                               file);
+                        fwrite("=", sizeof(char), 1, file);
+                    }
+                    fwrite(keyList[0].value(),
+                           sizeof(char),
+                           keyList[0].valueSize(),
+                           file);
+                }
+                delete[] keyList;
+            }
+
+            fwrite(delimitor, sizeof(char), 1, file);
+        }
+
+        fwrite(delimitor, sizeof(char), 1, file);
+    }
+    else if (entryType == UconfigINI::CommentEntry)
+    {
+        for (i=0; i<entry.subentryCount(); i++)
+        {
+            // Add leading ";" for each comment line
+            if (subentryList[i].type() == UconfigINI::Comment)
+                fwrite(";", sizeof(char), 1, file);
+
+            if (subentryList[i].keyCount() > 0)
+            {
+                keyList = subentryList[i].keys();
+                for (j=0; j<subentryList[i].keyCount(); j++)
+                {
+                    // Write each comment line or raw content line directly
+                    fwrite(keyList[0].value(),
+                           sizeof(char),
+                           keyList[0].valueSize(),
+                           file);
+                }
+                delete[] keyList;
+            }
+
+            fwrite(delimitor, sizeof(char), 1, file);
+        }
+    }
+
+    if (subentryList)
+        delete[] subentryList;
     return true;
 }

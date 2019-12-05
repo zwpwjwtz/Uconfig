@@ -49,6 +49,7 @@ bool testFileContainer()
 bool testParserINI()
 {
     const char* filename = "./SampleConfigs/QMLPlayer.ini";
+    const char* outputFileName = "./SampleConfigs/QMLPlayer.ini.ini";
 
     UconfigFile config;
     if (!UconfigINI::readUconfig(filename, &config))
@@ -66,6 +67,8 @@ bool testParserINI()
     success &=
         strcmp(config.rootEntry.searchSubentry("decoder").subentries()[0]
                      .keys()[0].name(), "video\\priority") == 0;
+
+    success &= UconfigINI::writeUconfig(outputFileName, &config);
 
     return success;
 }
