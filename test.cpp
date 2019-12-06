@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "parser/uconfigfile_metadata.h"
 #include "parser/uconfigini.h"
+#include "parser/uconfig2dtable.h"
 
 
 bool testFileContainer()
@@ -73,6 +74,29 @@ bool testParserINI()
     return success;
 }
 
+bool testParser2DTable()
+{
+    const char* filename = "./SampleConfigs/fstab";
+    const char* outputFileName = "./SampleConfigs/fstab.txt";
+
+    UconfigFile config;
+    if (!Uconfig2DTable::readUconfig(filename, &config, "\n", "\t"))
+        return false;
+
+    bool success = true;
+    success &=
+        strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_FILENAME).value(),
+               filename) == 0;
+    success &=
+        strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_COLDELIM).value(),
+               "\t") == 0;
+
+    Uconfig2DTable configParser;
+    success &= configParser.writeUconfig(outputFileName, &config);
+
+    return success;
+}
+
 int main(int argc, char *argv[])
 {
     if (testFileContainer())
@@ -84,6 +108,11 @@ int main(int argc, char *argv[])
         printf("testParserINI() passed.\n");
     else
         printf("testParserINI() failed!\n");
+
+    if (testParser2DTable())
+        printf("testParser2DTable() passed.\n");
+    else
+        printf("testParser2DTable() failed!\n");
 
     return 0;
 }

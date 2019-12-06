@@ -7,9 +7,9 @@
 #define UCONFIG_IO_INI_BUFFER_MAXLEN    16384
 
 
-bool Uconfig_fwriteEntry(FILE* file,
+bool Uconfig_fwriteINIEntry(FILE* file,
                          UconfigEntryObject& entry,
-                         const char* lineDelimitor = NULL);
+                         const char* lineDelimiter = NULL);
 
 bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
 {
@@ -38,8 +38,8 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
         if (readlen <= 2)
             continue;
 
-        // Get the length of line without line delimitor
-        readlen = Uconfig_findLineDelimitor(buffer);
+        // Get the length of line without line delimiter
+        readlen = Uconfig_findLineDelimiter(buffer);
 
         // See if the line opens a new entry
         if (buffer[0] == '[' && buffer[readlen - 1] == ']')
@@ -149,19 +149,20 @@ bool UconfigINI::writeUconfig(const char* filename, UconfigFile* config)
     if (!outputFile)
         return false;
 
+    bool success;
     UconfigEntryObject* entryList = config->rootEntry.subentries();
     for (int i=0; i<config->rootEntry.subentryCount(); i++)
     {
-        if (!Uconfig_fwriteEntry(outputFile, entryList[i]))
-        {
-            delete[] entryList;
-            return false;
-        }
+        success = Uconfig_fwriteINIEntry(outputFile, entryList[i]);
+        if (!success)
+            break;
     }
-    delete[] entryList;
 
+    if (entryList)
+        delete[] entryList;
     fclose(outputFile);
-    return true;
+
+    return success;
 }
 
 // Parse an expression string of format "KEY=VALUE"
@@ -191,7 +192,7 @@ bool UconfigINI::parseLineComment(const char* expression,
                                   UconfigKeyObject& key,
                                   int length)
 {
-    // See if the comment delimitor appears in a right place
+    // See if the comment delimiter appears in a right place
     int p = Uconfig_strpos(expression, "#");
     if (p < 0 || (p > 0 && expression[p - 1] != ' ') || p >= length - 1)
         p = Uconfig_strpos(expression, ";");
@@ -209,9 +210,9 @@ bool UconfigINI::parseLineComment(const char* expression,
     return true;
 }
 
-bool Uconfig_fwriteEntry(FILE* file,
+bool Uconfig_fwriteINIEntry(FILE* file,
                          UconfigEntryObject& entry,
-                         const char* lineDelimitor)
+                         const char* lineDelimiter)
 {
     if (entry.subentryCount() < 1)
         return true;
@@ -220,7 +221,7 @@ bool Uconfig_fwriteEntry(FILE* file,
     int entryType = entry.type();
     UconfigKeyObject* keyList = NULL;
     UconfigEntryObject* subentryList = entry.subentries();
-    const char* delimitor = lineDelimitor ? lineDelimitor : "\n";
+    const char* delimiter = lineDelimiter ? lineDelimiter : "\n";
 
     if (entryType == UconfigINI::NormalEntry)
     {
@@ -228,7 +229,7 @@ bool Uconfig_fwriteEntry(FILE* file,
         fwrite("[", sizeof(char), 1, file);
         fwrite(entry.name(), strlen(entry.name()), 1, file);
         fwrite("]", sizeof(char), 1, file);
-        fwrite(delimitor, sizeof(char), 1, file);
+        fwrite(delimiter, sizeof(char), 1, file);
 
         for (i=0; i<entry.subentryCount(); i++)
         {
@@ -258,10 +259,10 @@ bool Uconfig_fwriteEntry(FILE* file,
                 delete[] keyList;
             }
 
-            fwrite(delimitor, sizeof(char), 1, file);
+            fwrite(delimiter, sizeof(char), 1, file);
         }
 
-        fwrite(delimitor, sizeof(char), 1, file);
+        fwrite(delimiter, sizeof(char), 1, file);
     }
     else if (entryType == UconfigINI::CommentEntry)
     {
@@ -285,7 +286,7 @@ bool Uconfig_fwriteEntry(FILE* file,
                 delete[] keyList;
             }
 
-            fwrite(delimitor, sizeof(char), 1, file);
+            fwrite(delimiter, sizeof(char), 1, file);
         }
     }
 

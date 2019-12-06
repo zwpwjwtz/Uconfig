@@ -32,7 +32,8 @@ SOURCES += test.cpp \
     parser/uconfigfile.cpp \
     parser/uconfigentryobject.cpp \
     parser/uconfigini.cpp \
-    parser/utils.cpp
+    parser/utils.cpp \
+    parser/uconfig2dtable.cpp
 
 HEADERS  += \
     parser/uconfigentry.h \
@@ -41,7 +42,8 @@ HEADERS  += \
     parser/uconfigini.h \
     parser/uconfigio.h \
     parser/uconfigfile_metadata.h \
-    parser/utils.h
+    parser/utils.h \
+    parser/uconfig2dtable.h
 
 target.path = $${PREFIX}/bin/
 

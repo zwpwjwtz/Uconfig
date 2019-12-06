@@ -7,8 +7,8 @@
 class UconfigIO
 {
 public:
-    UconfigIO();
-    ~UconfigIO();
+    UconfigIO(){}
+    ~UconfigIO(){}
 
     static bool readUconfig(const char* filename,
                             UconfigFile* config);
