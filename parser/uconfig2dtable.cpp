@@ -4,6 +4,9 @@
 #include "uconfigfile_metadata.h"
 #include "utils.h"
 
+#define UCONFIG_IO_2DTABLE_DELIMITER_ROW    "\n"
+#define UCONFIG_IO_2DTABLE_DELIMITER_COL    " "
+
 
 static bool Uconfig_fwrite2DTableEntry(FILE* file,
                                        UconfigEntryObject& entry,
@@ -15,7 +18,9 @@ static bool Uconfig_fwrite2DTableSubentry(FILE* file,
 
 bool Uconfig2DTable::readUconfig(const char* filename, UconfigFile* config)
 {
-    return readUconfig(filename, config, "\n", " ");
+    return readUconfig(filename, config,
+                       UCONFIG_IO_2DTABLE_DELIMITER_ROW,
+                       UCONFIG_IO_2DTABLE_DELIMITER_COL);
 }
 
 bool Uconfig2DTable::writeUconfig(const char* filename, UconfigFile* config)
@@ -30,7 +35,9 @@ bool Uconfig2DTable::writeUconfig(const char* filename, UconfigFile* config)
 bool Uconfig2DTable::readUconfig(const char* filename,
                                  UconfigFile* config,
                                  const char* rowDelimiter,
-                                 const char* columnDelimiter)
+                                 const char* columnDelimiter,
+                                 bool skipEmptyRow,
+                                 bool skipEmptyColumn)
 {
     if (!config)
         return false;
@@ -46,17 +53,22 @@ bool Uconfig2DTable::readUconfig(const char* filename,
     // Read a 2D table file and parse its content "line" by "line"
     int readLen;
     char* buffer;
+    if (!rowDelimiter)
+        rowDelimiter = UCONFIG_IO_2DTABLE_DELIMITER_ROW;
+    if (!columnDelimiter)
+        columnDelimiter = UCONFIG_IO_2DTABLE_DELIMITER_COL;
     while(!feof(inputFile))
     {
         readLen = 0;
         buffer = NULL;
         readLen = Uconfig_getdelim(&buffer, &readLen, rowDelimiter, inputFile);
 
-        // Omit empty (incomplete) "lines"
-        if (readLen < 1)
+        // Omit empty (incomplete) "lines" if required
+        if (readLen < 1 && skipEmptyRow)
             continue;
 
-        parseValues(buffer, tempSubentry, readLen, columnDelimiter);
+        parseValues(buffer, tempSubentry, readLen,
+                    columnDelimiter, skipEmptyColumn);
 
         if (tempSubentry.keyCount() > 0)
         {
@@ -157,8 +169,14 @@ bool Uconfig2DTable::writeUconfig(const char* filename,
 int Uconfig2DTable::parseValues(const char* expression,
                                 UconfigEntryObject& entry,
                                 int expressionLength,
-                                const char* delimiter)
+                                const char* delimiter,
+                                bool skipEmptyValue)
 {
+    if (!expression)
+        return 0;
+    if (!delimiter)
+        delimiter = UCONFIG_IO_2DTABLE_DELIMITER_COL;
+
     int p1 = 0, p2, substrLen;
     int keyCount = 0;
     int delimiterLength = strlen(delimiter);
@@ -179,7 +197,7 @@ int Uconfig2DTable::parseValues(const char* expression,
             p2 = p1 + substrLen;
         }
 
-        if (substrLen > 0)
+        if (substrLen > 0 || !skipEmptyValue)
         {
             tempKey.reset();
             tempKey.setType(UconfigValueType::Raw);

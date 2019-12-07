@@ -25,7 +25,9 @@ public:
     static bool readUconfig(const char* filename,
                             UconfigFile* config,
                             const char* rowDelimiter,
-                            const char* columnDelimiter);
+                            const char* columnDelimiter,
+                            bool skipEmptyRow = true,
+                            bool skipEmptyColumn = true);
     static bool writeUconfig(const char* filename,
                              UconfigFile* config,
                              const char* rowDelimiter,
@@ -34,7 +36,8 @@ public:
     static int parseValues(const char* expression,
                            UconfigEntryObject& entry,
                            int expressionLength = 0,
-                           const char* delimiter = NULL);
+                           const char* delimiter = NULL,
+                           bool skipEmptyValue = true);
 };
 
 #endif // UCONFIG2DTABLE_H

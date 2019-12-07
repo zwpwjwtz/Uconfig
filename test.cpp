@@ -80,7 +80,8 @@ bool testParser2DTable()
     const char* outputFileName = "./SampleConfigs/fstab.txt";
 
     UconfigFile config;
-    if (!Uconfig2DTable::readUconfig(filename, &config, "\n", "\t"))
+    if (!Uconfig2DTable::readUconfig(filename, &config,
+                                     "\n", NULL, false, true))
         return false;
 
     bool success = true;
