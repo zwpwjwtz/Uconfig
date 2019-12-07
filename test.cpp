@@ -47,6 +47,31 @@ bool testFileContainer()
     return success;
 }
 
+
+bool testParserKeyValue()
+{
+    const char* filename = "./SampleConfigs/grub";
+    const char* outputFileName = "./SampleConfigs/grub.txt";
+
+    UconfigFile config;
+    if (!UconfigKeyValue::readUconfig(filename, &config))
+        return false;
+
+    bool success = true;
+    success &=
+        strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_FILENAME).value(),
+               filename) == 0;
+    success &=
+        config.rootEntry.searchSubentry("GRUB_GFXMODE").keyCount() == 2;
+    success &=
+        strcmp(config.rootEntry.searchSubentry("GRUB_CMDLINE_LINUX")
+                     .keys()[0].value(), "\"\"") == 0;
+
+    success &= UconfigKeyValue::writeUconfig(outputFileName, &config);
+
+    return success;
+}
+
 bool testParserINI()
 {
     const char* filename = "./SampleConfigs/QMLPlayer.ini";
@@ -90,7 +115,7 @@ bool testParser2DTable()
                filename) == 0;
     success &=
         strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_COLDELIM).value(),
-               "\t") == 0;
+               " ") == 0;
 
     Uconfig2DTable configParser;
     success &= configParser.writeUconfig(outputFileName, &config);
@@ -104,6 +129,11 @@ int main(int argc, char *argv[])
         printf("testFileContainer() passed.\n");
     else
         printf("testFileContainer() failed!\n");
+
+    if (testParserKeyValue())
+        printf("testParserKeyValue() passed.\n");
+    else
+        printf("testParserKeyValue() failed!\n");
 
     if (testParserINI())
         printf("testParserINI() passed.\n");

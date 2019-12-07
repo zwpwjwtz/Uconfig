@@ -1,0 +1,11 @@
+# Written by com.deepin.daemon.Grub2
+DEEPIN_GFXMODE_ADJUSTED=1
+GRUB_BACKGROUND=
+GRUB_CMDLINE_LINUX=""
+GRUB_CMDLINE_LINUX_DEFAULT="splash quiet DEEPIN_GFXMODE=\$DEEPIN_GFXMODE"
+GRUB_DEFAULT=0
+GRUB_DISTRIBUTOR=`lsb_release -i -s 2> /dev/null || echo Debian`
+GRUB_GFXMODE=2560x1600 # Screen resolution: 2560x1600x16
+GRUB_THEME="/boot/grub/themes/deepin/theme.txt"
+GRUB_TIMEOUT=5
+LANG=zh_CN

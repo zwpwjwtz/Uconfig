@@ -1,17 +1,23 @@
-#ifndef UCONFIGINI_H
-#define UCONFIGINI_H
+#ifndef UCONFIGKEYVALUE_H
+#define UCONFIGKEYVALUE_H
 
-#include "uconfigkeyvalue.h"
+#include "uconfigio.h"
 
 
-class UconfigINI : public UconfigKeyValue
+class UconfigKeyValue : public UconfigIO
 {
 public:
     enum EntryType
     {
         UnknownEntry = 0,
-        NormalEntry = 1,
-        CommentEntry = 2
+        NormalEntry = 1
+    };
+
+    enum SubentryType
+    {
+        Raw = 0,
+        KeyVal = 1,
+        Comment = 2
     };
 
     static bool readUconfig(const char* filename,
@@ -20,4 +26,4 @@ public:
                              UconfigFile* config);
 };
 
-#endif // UCONFIGINI_H
+#endif // UCONFIGKEYVALUE_H
