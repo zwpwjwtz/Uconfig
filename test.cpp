@@ -3,6 +3,7 @@
 #include "parser/uconfigfile_metadata.h"
 #include "parser/uconfigini.h"
 #include "parser/uconfig2dtable.h"
+#include "parser/uconfigjson.h"
 
 
 bool testFileContainer()
@@ -117,8 +118,38 @@ bool testParser2DTable()
         strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_COLDELIM).value(),
                " ") == 0;
 
-    Uconfig2DTable configParser;
-    success &= configParser.writeUconfig(outputFileName, &config);
+    success &= Uconfig2DTable::writeUconfig(outputFileName, &config);
+
+    return success;
+}
+
+bool testParserJSON()
+{
+    const char* filename = "./SampleConfigs/firefox.json";
+    const char* outputFileName = "./SampleConfigs/firefox.json.json";
+
+    UconfigFile config;
+    if (!UconfigJSON::readUconfig(filename, &config))
+        return false;
+
+    bool success = true;
+    UconfigEntryObject subentry;
+    success &=
+        strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_FILENAME).value(),
+               filename) == 0;
+
+    success &= config.rootEntry.searchSubentry("\"Apply\"", NULL, true)
+                     .subentryCount() == 1;
+
+    success &= config.rootEntry.searchSubentry("\"Capture\"", NULL, true)
+                     .keyCount() == 1;
+
+    success &=
+        strcmp(config.rootEntry.searchSubentry("\"FileList\"", NULL, true)
+               .keys()[4].value(),
+               "\"/usr/lib/python3.5/\"") == 0;
+
+    success &= UconfigJSON::writeUconfig(outputFileName, &config);
 
     return success;
 }
@@ -144,6 +175,11 @@ int main(int argc, char *argv[])
         printf("testParser2DTable() passed.\n");
     else
         printf("testParser2DTable() failed!\n");
+
+    if (testParserJSON())
+        printf("testParserJSON() passed.\n");
+    else
+        printf("testParserJSON() failed!\n");
 
     return 0;
 }

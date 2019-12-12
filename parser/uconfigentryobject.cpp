@@ -666,7 +666,9 @@ UconfigEntry* Uconfig_searchEntryByName(const char* name,
         UconfigEntry* entry;
         for (int i=0; i<parent->subentryCount; i++)
         {
-            entry = Uconfig_searchEntryByName(name, parent->subentries[i]);
+            entry = Uconfig_searchEntryByName(name,
+                                              parent->subentries[i],
+                                              true);
             if (entry)
                 return entry;
         }

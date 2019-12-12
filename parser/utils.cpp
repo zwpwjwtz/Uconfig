@@ -6,6 +6,8 @@
 #define UCONFIG_UTILS_LINEDELIMITER_UNIX    "\n"
 #define UCONFIG_UTILS_LINEDELIMITER_OSX     "\r"
 #define UCONFIG_UTILS_LINEDELIMITER_WIN     "\r\n"
+#define UCONFIG_UTILS_INDENTATION_SPACE     "    "
+#define UCONFIG_UTILS_INDENTATION_TAB       "   "
 
 #define UCONFIG_UTILS_FILE_BUFFER_MAX   1024
 
@@ -96,4 +98,24 @@ int Uconfig_getdelim(char** lineptr, int* n,
             *n = newBufferSize;
         }
     }
+}
+
+int Uconfig_fwriteIndentation(FILE* __restrict stream,
+                              int level,
+                              bool usingTabs)
+{
+    int charCount = 0;
+    const char* indentString = usingTabs ?
+                               UCONFIG_UTILS_INDENTATION_TAB :
+                               UCONFIG_UTILS_INDENTATION_SPACE;
+    const int indentLength = strlen(indentString);
+
+    while (level > 0)
+    {
+        level--;
+        fwrite(indentString, sizeof(char), indentLength, stream);
+        charCount += indentLength;
+    }
+
+    return charCount;
 }

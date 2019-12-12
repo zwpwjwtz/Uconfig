@@ -23,4 +23,9 @@ extern int Uconfig_getdelim(char** __restrict lineptr,
                             const char* __restrict delimiter,
                             FILE* __restrict stream);
 
+// Write multiple spaces (0x20) or tabs (0x09) as indentation of text
+extern int Uconfig_fwriteIndentation(FILE* __restrict stream,
+                                     int level,
+                                     bool usingTabs = false);
+
 #endif // UTILS_H

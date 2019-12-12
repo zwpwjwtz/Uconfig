@@ -7,7 +7,9 @@
 #define UCONFIG_METADATA_KEY_COLDELIM   "2d-table/column-delimiter"
 
 #define UCONFIG_METADATA_VALUE_RAWFILE  "raw"
+#define UCONFIG_METADATA_VALUE_KEYVAL   "key-value"
 #define UCONFIG_METADATA_VALUE_INIFILE  "winini"
 #define UCONFIG_METADATA_VALUE_2DTABLE  "2d-table"
+#define UCONFIG_METADATA_VALUE_JSON     "json"
 
 #endif // UCONFIGFILE_METADATA_H

@@ -1,0 +1,27 @@
+{
+    "Id" : "firefox",
+    "TryFile": "/usr/bin/firefox",
+    "Apply": {
+        "After" : [ "snapshot:DE" ]
+    },
+    "Capture": {
+        "After": [ "inner:user", "x11:Firefox" ],
+        "WaitSecond": 3,
+        "Method": [
+            {
+                "Type": "uiapp",
+                "WMClass": "Firefox"
+            },
+            {
+                "Type": "filelist",
+                "FileList": [
+                    "$HOME/.cache/mozilla/firefox",
+                    "$HOME/.mozilla/firefox",
+                    "/usr/share/fonts/",
+                    "/usr/lib/python3/",
+                    "/usr/lib/python3.5/"
+                ]
+            }
+        ]
+    }
+}
