@@ -11,7 +11,7 @@ public:
     {
         UnknownEntry = 0,
         ObjectEntry = 1,
-        ArrayEntry = 2
+        ArrayEntry = 16
     };
 
     static bool readUconfig(const char* filename,

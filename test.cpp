@@ -133,7 +133,6 @@ bool testParserJSON()
         return false;
 
     bool success = true;
-    UconfigEntryObject subentry;
     success &=
         strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_FILENAME).value(),
                filename) == 0;

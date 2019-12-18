@@ -62,8 +62,43 @@ bool UconfigJSON::writeUconfig(const char* filename, UconfigFile* config)
     if (!outputFile)
         return false;
 
-    bool success = UconfigJSONPrivate::fwriteEntry(outputFile,
-                                                   config->rootEntry) > 0;
+    bool success = true;
+    int nlDLength = strlen(UCONFIG_IO_JSON_DELIMITER_NEWLINE);
+
+    // According to specification, a JSON file must contain either
+    // exactly one value or exactly one obejct, or simply be empty.
+    // Here, we will output all the values and objects attached to the root.
+    UconfigKeyObject* keyList = config->rootEntry.keys();
+    if (keyList)
+    {
+        for (int i=0; i<config->rootEntry.keyCount(); i++)
+        {
+            if (i > 0)
+                fputc(UCONFIG_IO_JSON_CHAR_ELEMENT_NEXT, outputFile);
+
+            success &= UconfigJSONPrivate::fwriteEntry(outputFile,
+                                                       config->rootEntry) > 0;
+            fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
+                   sizeof(char), nlDLength, outputFile);
+        }
+        delete[] keyList;
+    }
+
+    UconfigEntryObject* entryList = config->rootEntry.subentries();
+    if (entryList)
+    {
+        for (int i=0; i<config->rootEntry.subentryCount(); i++)
+        {
+            if (i > 0)
+                fputc(UCONFIG_IO_JSON_CHAR_ELEMENT_NEXT, outputFile);
+
+            success &= UconfigJSONPrivate::fwriteEntry(outputFile,
+                                                       entryList[i]) > 0;
+            fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
+                   sizeof(char), nlDLength, outputFile);
+        }
+        delete[] entryList;
+    }
 
     fclose(outputFile);
     return success;
@@ -205,6 +240,20 @@ bool UconfigJSONPrivate::fwriteEntry(FILE* file,
     int nlDLength = strlen(UCONFIG_IO_JSON_DELIMITER_NEWLINE);
     int dDLength = strlen(UCONFIG_IO_JSON_DELIMITER_DEFINITION);
 
+    UconfigJSON::EntryType entryType = UconfigJSON::EntryType(entry.type());
+
+    // The opening tag
+    switch (entryType)
+    {
+        case UconfigJSON::ArrayEntry:
+            fputc(UCONFIG_IO_JSON_CHAR_ARRAY_BEGIN, file);
+            break;
+        case UconfigJSON::ObjectEntry:
+            fputc(UCONFIG_IO_JSON_CHAR_OBJECT_BEGIN, file);
+            break;
+        default:;
+    }
+
     // First write the values of keys
     UconfigKeyObject* keyList = entry.keys();
     if (keyList)
@@ -212,14 +261,13 @@ bool UconfigJSONPrivate::fwriteEntry(FILE* file,
         for (i=0; i<entry.keyCount(); i++)
         {
             if (i > 0)
-            {
                 fputc(UCONFIG_IO_JSON_CHAR_ELEMENT_NEXT, file);
-                fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
-                       sizeof(char), nlDLength, file);
-            }
+
+            fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
+                   sizeof(char), nlDLength, file);
+            Uconfig_fwriteIndentation(file, level + 1);
 
             // Write the name of the key if any
-            Uconfig_fwriteIndentation(file, level);
             if (keyList[i].name())
             {
                 fwrite(keyList[i].name(),
@@ -247,24 +295,19 @@ bool UconfigJSONPrivate::fwriteEntry(FILE* file,
         // Add an additional comma between keys and subentries
         // if necessary
         if (entry.keyCount() > 0)
-        {
             fputc(UCONFIG_IO_JSON_CHAR_ELEMENT_NEXT, file);
-            fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
-                   sizeof(char), nlDLength, file);
-        }
 
         for (i=0; i<entry.subentryCount(); i++)
         {
             if (i > 0)
-            {
                 fputc(UCONFIG_IO_JSON_CHAR_ELEMENT_NEXT, file);
-                fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
-                       sizeof(char), nlDLength, file);
-            }
+
+            fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
+                   sizeof(char), nlDLength, file);
+            Uconfig_fwriteIndentation(file, level + 1);
 
             // Write the name of the subentry if any and
             // if we are in an object
-            Uconfig_fwriteIndentation(file, level);
             if (subentryList[i].name() &&
                 entry.type() == UconfigJSON::ObjectEntry)
             {
@@ -277,35 +320,26 @@ bool UconfigJSONPrivate::fwriteEntry(FILE* file,
             }
 
             // Write the body of the subentry
-            switch (UconfigJSON::EntryType(subentryList[i].type()))
-            {
-                case UconfigJSON::ArrayEntry:
-                    fputc(UCONFIG_IO_JSON_CHAR_ARRAY_BEGIN, file);
-                    fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
-                           sizeof(char), nlDLength, file);
-                    fwriteEntry(file, subentryList[i], level + 1);
-                    fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
-                           sizeof(char), nlDLength, file);
-                    Uconfig_fwriteIndentation(file, level);
-                    fputc(UCONFIG_IO_JSON_CHAR_ARRAY_END, file);
-                    break;
-                case UconfigJSON::ObjectEntry:
-                    fputc(UCONFIG_IO_JSON_CHAR_OBJECT_BEGIN, file);
-                    fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
-                           sizeof(char), nlDLength, file);
-                    fwriteEntry(file, subentryList[i], level + 1);
-                    fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
-                           sizeof(char), nlDLength, file);
-                    Uconfig_fwriteIndentation(file, level);
-                    fputc(UCONFIG_IO_JSON_CHAR_OBJECT_END, file);
-                    break;
-                default:
-                    // Skip subentries of unknown type
-                    ;
-            }
+            fwriteEntry(file, subentryList[i], level + 1);
         }
 
         delete[] subentryList;
     }
+
+    // The closing tag
+    fwrite(UCONFIG_IO_JSON_DELIMITER_NEWLINE,
+           sizeof(char), nlDLength, file);
+    Uconfig_fwriteIndentation(file, level);
+    switch (entryType)
+    {
+        case UconfigJSON::ArrayEntry:
+            fputc(UCONFIG_IO_JSON_CHAR_ARRAY_END, file);
+            break;
+        case UconfigJSON::ObjectEntry:
+            fputc(UCONFIG_IO_JSON_CHAR_OBJECT_END, file);
+            break;
+        default:;
+    }
+
     return true;
 }
