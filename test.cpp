@@ -4,6 +4,7 @@
 #include "parser/uconfigini.h"
 #include "parser/uconfig2dtable.h"
 #include "parser/uconfigjson.h"
+#include "parser/uconfigxml.h"
 
 
 bool testFileContainer()
@@ -153,6 +154,42 @@ bool testParserJSON()
     return success;
 }
 
+bool testParserXML()
+{
+    const char* filename = "./SampleConfigs/config.xml";
+    const char* outputFileName = "./SampleConfigs/config.xml.xml";
+
+    UconfigFile config;
+    if (!UconfigXML::readUconfig(filename, &config))
+        return false;
+
+    bool success = true;
+    success &=
+        strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_FILENAME).value(),
+               filename) == 0;
+
+    success &= config.rootEntry.searchSubentry("configBlock", NULL, true)
+                     .subentryCount() == 2;
+
+    success &= config.rootEntry.searchSubentry("handler", NULL, true)
+                     .keyCount() == 3;
+
+    UconfigKeyObject* key =
+            config.rootEntry.searchSubentry("contents", NULL, true)
+                  .subentries()[0].keys();
+    success &=
+        strncmp(key->value(),
+                "\n<add verb=\"*\" path=\"settings.map\" "
+                "type=\"System.Web.HttpForbiddenHandler, System.Web, "
+                "Version=2.0.0.0, Culture=neutral, "
+                "PublicKeyToken=Token\" />\n",
+                key->valueSize()) == 0;
+
+    success &= UconfigXML::writeUconfig(outputFileName, &config);
+
+    return success;
+}
+
 int main(int argc, char *argv[])
 {
     if (testFileContainer())
@@ -179,6 +216,11 @@ int main(int argc, char *argv[])
         printf("testParserJSON() passed.\n");
     else
         printf("testParserJSON() failed!\n");
+
+    if (testParserXML())
+        printf("testParserXML() passed.\n");
+    else
+        printf("testParserXML() failed!\n");
 
     return 0;
 }
