@@ -19,6 +19,8 @@ enum UconfigValueType
 struct UconfigKey
 {
     char* name;
+    int nameSize;  // Number of bytes required by the name
+
     int valueType; // Using enum UconfigValueType
     int valueSize; // Number of bytes required by the value
     char* value;
@@ -27,12 +29,15 @@ struct UconfigKey
 struct UconfigEntry
 {
     char* name;
+    int nameSize;
+
     int type; // Used by specific parser
 
     int keyCount;   // Number of keys
     int subentryCount; // Number of subentries;
     UconfigKey** keys;
     UconfigEntry** subentries;
+
     UconfigEntry* parentEntry;
 };
 

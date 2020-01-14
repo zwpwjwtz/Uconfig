@@ -9,18 +9,22 @@
 
 bool testFileContainer()
 {
+    const char* name1 = "TestEntry";
+    const char* name2 = "Hello";
     const char bigdata[] = "235\x00\x00735689067458\x00934890346";
 
     UconfigEntry e1;
 
     e1.name = new char[32];
-    strcpy(e1.name, "TestEntry");
+    strcpy(e1.name, name1);
+    e1.nameSize = strlen(name1) + 1;
 
     e1.keyCount = 2;
     e1.keys = new UconfigKey*[2];
     e1.keys[0] = new UconfigKey;
     e1.keys[0]->name = new char[16];
-    strcpy(e1.keys[0]->name, "Hello");
+    strcpy(e1.keys[0]->name, name2);
+    e1.keys[0]->nameSize = strlen(name2) + 1;
     e1.keys[1] = new UconfigKey;
     e1.keys[1]->valueSize = 32;
     e1.keys[1]->value = new char[e1.keys[1]->valueSize];
@@ -31,7 +35,7 @@ bool testFileContainer()
     UconfigFile f;
     f.rootEntry.addSubentry(&e);
 
-    UconfigEntryObject e2 = f.rootEntry.searchSubentry("TestEntry");
+    UconfigEntryObject e2 = f.rootEntry.searchSubentry(name1);
     UconfigEntryObject e3(e2);
 
     bool success = true;
@@ -144,10 +148,12 @@ bool testParserJSON()
     success &= config.rootEntry.searchSubentry("\"Capture\"", NULL, true)
                      .keyCount() == 1;
 
+    UconfigKeyObject* keyList =
+            config.rootEntry.searchSubentry("\"FileList\"", NULL, true).keys();
     success &=
-        strcmp(config.rootEntry.searchSubentry("\"FileList\"", NULL, true)
-               .keys()[4].value(),
-               "\"/usr/lib/python3.5/\"") == 0;
+        strncmp(keyList[4].value(),
+                "\"/usr/lib/python3.5/\"",
+                keyList[4].valueSize()) == 0;
 
     success &= UconfigJSON::writeUconfig(outputFileName, &config);
 
@@ -169,21 +175,21 @@ bool testParserXML()
                filename) == 0;
 
     success &= config.rootEntry.searchSubentry("configBlock", NULL, true)
-                     .subentryCount() == 2;
+                     .subentryCount() == 5;
 
     success &= config.rootEntry.searchSubentry("handler", NULL, true)
                      .keyCount() == 3;
 
-    UconfigKeyObject* key =
+    UconfigKeyObject* keyList =
             config.rootEntry.searchSubentry("contents", NULL, true)
-                  .subentries()[0].keys();
+                  .subentries()[1].keys();
     success &=
-        strncmp(key->value(),
+        strncmp(keyList[0].value(),
                 "\n<add verb=\"*\" path=\"settings.map\" "
                 "type=\"System.Web.HttpForbiddenHandler, System.Web, "
                 "Version=2.0.0.0, Culture=neutral, "
                 "PublicKeyToken=Token\" />\n",
-                key->valueSize()) == 0;
+                keyList[0].valueSize()) == 0;
 
     success &= UconfigXML::writeUconfig(outputFileName, &config);
 

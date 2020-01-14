@@ -21,7 +21,8 @@ public:
     void reset();
 
     const char* name() const;
-    void setName(const char* name);
+    int nameSize() const;
+    void setName(const char* name, int size = 0);
 
     UconfigValueType type() const;
     void setType(UconfigValueType type);
@@ -57,29 +58,35 @@ public:
     void reset();
 
     const char* name() const;
-    void setName(const char* name);
+    int nameSize() const;
+    void setName(const char* name, int size = 0);
 
     int type() const;
     void setType(int type);
 
     int keyCount() const;
     UconfigKeyObject* keys();
-    UconfigKeyObject searchKey(const char* keyName);
+    UconfigKeyObject searchKey(const char* keyName, int nameSize = 0);
 
     bool addKey(const UconfigKeyObject* newKey);
-    bool deleteKey(const char* keyName);
-    bool modifyKey(const char* keyName, const UconfigKeyObject* newKey);
+    bool deleteKey(const char* keyName, int nameSize = 0);
+    bool modifyKey(const UconfigKeyObject* newKey,
+                   const char* keyName,
+                   int nameSize = 0);
 
     int subentryCount() const;
     UconfigEntryObject* subentries();
     UconfigEntryObject searchSubentry(const char* entryName = NULL,
                                       const char* parentName = NULL,
-                                      bool recursive = false);
+                                      bool recursive = false,
+                                      int entryNameSize = 0,
+                                      int parentNameSize = 0);
 
     bool addSubentry(const UconfigEntryObject *newEntry);
-    bool deleteSubentry(const char* entryName);
-    bool modifySubentry(const char* entryName,
-                        const UconfigEntryObject* newEntry);
+    bool deleteSubentry(const char* entryName, int nameSize = 0);
+    bool modifySubentry(const UconfigEntryObject* newEntry,
+                        const char* entryName,
+                        int nameSize);
 
     static bool copyEntry(UconfigEntry* dest,
                            const UconfigEntry* src,
