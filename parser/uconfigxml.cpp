@@ -13,6 +13,7 @@
 #define UCONFIG_IO_XML_CHAR_TAG_END             '>'
 #define UCONFIG_IO_XML_CHAR_KEY_DEFINITION      '='
 #define UCONFIG_IO_XML_CHAR_STRING              '"'
+#define UCONFIG_IO_XML_CHAR_STRING2             '\''
 
 // Delimitors as strings
 #define UCONFIG_IO_XML_DELIMITER_NEWLINE        "\n"
@@ -21,17 +22,15 @@
 #define UCONFIG_IO_XML_DELIMITER_TAG_BEGINOPEN  "<"
 #define UCONFIG_IO_XML_DELIMITER_TAG_BEGINCLOSE "</"
 #define UCONFIG_IO_XML_DELIMITER_TAG_END        ">"
-#define UCONFIG_IO_XML_DELIMITER_TAG_ENDSELF    " />"
+#define UCONFIG_IO_XML_DELIMITER_TAG_ENDSELF    "/>"
 #define UCONFIG_IO_XML_DELIMITER_COMMENT_BEGIN  "<!--"
 #define UCONFIG_IO_XML_DELIMITER_COMMENT_END    "-->"
 #define UCONFIG_IO_XML_DELIMITER_CDATA_BEGIN    "<![CDATA["
 #define UCONFIG_IO_XML_DELIMITER_CDATA_END      "]]>"
-#define UCONFIG_IO_XML_DELIMITER_XML_BEGIN      "<?xml"
+#define UCONFIG_IO_XML_DELIMITER_XML_BEGIN      "<?xml "
 #define UCONFIG_IO_XML_DELIMITER_XML_END        "?>"
-#define UCONFIG_IO_XML_DELIMITER_DOCTYPE_BEGIN  "<!DOCTYPE"
+#define UCONFIG_IO_XML_DELIMITER_DOCTYPE_BEGIN  "<!DOCTYPE "
 #define UCONFIG_IO_XML_DELIMITER_DOCTYPE_END    ">"
-#define UCONFIG_IO_XML_NAME_XML                 "?xml"
-#define UCONFIG_IO_XML_NAME_DOCTYPE             "!DOCTYPE"
 
 #define UCONFIG_IO_XML_BUFFER_MIN               8
 
@@ -105,16 +104,18 @@ UconfigValueType UconfigXMLPrivate::getValueType(const char* value,
 }
 
 int UconfigXMLPrivate::freadEntry(FILE* file,
-                                   UconfigEntryObject& entry)
+                                  UconfigEntryObject& entry,
+                                  bool inTag)
 {
     int retValue;
     int parsedLen = 0;
     bool nextKey = false;
-    bool nextElement = false;
     bool preOpening = false;
+    bool preClosing = false;
     bool closing = false;
     bool parsingString = false;
     char bufferChar;
+    char lastStringDelimitor;
     std::vector<char> buffer, keyName;
     UconfigValueType valueType;
     UconfigKeyObject tempKey;
@@ -135,10 +136,26 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
         bufferChar = char(retValue);
         if (parsingString)
         {
-            // Quit string parsing mode
             buffer.push_back(bufferChar);
-            if (bufferChar == UCONFIG_IO_XML_CHAR_STRING)
+            if (bufferChar == lastStringDelimitor)
+            {
+                // Quit string parsing mode
                 parsingString = false;
+            }
+        }
+        else if (!inTag)
+        {
+            if (bufferChar == UCONFIG_IO_XML_CHAR_TAG_BEGIN)
+            {
+                // Both opening and closing tag are possible
+                // We need to read one more char to determine
+                preOpening = true;
+            }
+            else
+            {
+                // Parsing text entry
+                buffer.push_back(bufferChar);
+            }
         }
         else
         switch (bufferChar)
@@ -151,18 +168,18 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                 nextKey = true;
                 break;
             case UCONFIG_IO_XML_CHAR_STRING:
+            case UCONFIG_IO_XML_CHAR_STRING2:
                 // Enter string parsing mode
                 parsingString = true;
+                lastStringDelimitor = bufferChar;
                 buffer.push_back(bufferChar);
                 break;
             case UCONFIG_IO_XML_CHAR_TAG_BEGIN:
-                // Both opening and closing tag are possible
-                // We need to read one more char to determine
                 preOpening = true;
                 break;
             case UCONFIG_IO_XML_CHAR_TAG_END:
                 nextKey = true;
-                nextElement = true;
+                preClosing = true;
                 break;
             case UCONFIG_IO_XML_CHAR_TAG_MID:
                 nextKey = true;
@@ -179,6 +196,22 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
 
         if (preOpening)
         {
+            preOpening = false;
+
+            // Store previous read chars (if any) as a text entry
+            if (buffer.size() > 0)
+            {
+                tempKey.setName(NULL);
+                tempKey.setType(UconfigValueType::Raw);
+                tempKey.setValue(buffer.data(), buffer.size());
+                tempSubentry.reset();
+                tempSubentry.setType(UconfigXML::TextEntry);
+                tempSubentry.addKey(&tempKey);
+                entry.addSubentry(&tempSubentry);
+
+                buffer.clear();
+            }
+
             // Determine the tag's nature from its left part
             fseek(file, -1, SEEK_CUR);
             parsedLen--;
@@ -195,7 +228,6 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
             {
                 // Normal element
                 // Try to read one more char to determine its nature
-
                 fseek(file, 1, SEEK_CUR);
                 parsedLen++;
 
@@ -211,15 +243,16 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                 if (bufferChar == UCONFIG_IO_XML_CHAR_TAG_MID)
                 {
                     // Closing tag of an element
+                    inTag = true;
                     closing = true;
                 }
                 else
                 {
-                    // Opening tag of an element, ignore it
+                    // Subentry: parse it recursively
                     fseek(file, -1, SEEK_CUR);
                     parsedLen--;
 
-                    retValue = freadEntry(file, tempSubentry);
+                    retValue = freadEntry(file, tempSubentry, true);
                     if (retValue > 0)
                     {
                         tempSubentry.setType(UconfigXML::NormalEntry);
@@ -233,12 +266,12 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                 entry.addSubentry(&tempSubentry);
                 parsedLen += retValue;
             }
-
-            preOpening = false;
         }
 
         if (nextKey)
         {
+            nextKey = false;
+
             if (buffer.size() > 0)
             {
                 // Deal with element names, attribute names and values
@@ -275,12 +308,13 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
 
                 buffer.clear();
             }
-
-            nextKey = false;
         }
 
-        if (nextElement)
+        if (preClosing)
         {
+            preClosing = false;
+            inTag = false;
+
             // Deal with the right part of opening/closing tags
             if (closing)
             {
@@ -298,8 +332,6 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                 }
                 break;
             }
-
-            nextElement = false;
         }
     }
 
@@ -310,198 +342,219 @@ bool UconfigXMLPrivate::fwriteEntry(FILE* file,
                                     UconfigEntryObject& entry,
                                     int level)
 {
-    int i;
-    const int nlDLength = strlen(UCONFIG_IO_XML_DELIMITER_NEWLINE);
-    const int tboDLength = strlen(UCONFIG_IO_XML_DELIMITER_TAG_BEGINOPEN);
-    const int tbcDLength = strlen(UCONFIG_IO_XML_DELIMITER_TAG_BEGINCLOSE);
-    const int teDLength = strlen(UCONFIG_IO_XML_DELIMITER_TAG_END);
-    const int kvDlength = strlen(UCONFIG_IO_XML_DELIMITER_KEYVAL);
-
-    if (entry.type() == UconfigXML::NormalEntry ||
-        entry.type() == UconfigXML::DoctypeEntry ||
-        entry.type() == UconfigXML::XMLDeclEntry)
+    switch (UconfigXML::EntryType(entry.type()))
     {
-        // First write the opening tag of the entry
-        Uconfig_fwriteIndentation(file, level);
-        fwrite(UCONFIG_IO_XML_DELIMITER_TAG_BEGINOPEN,
-               sizeof(char), tboDLength, file);
-        if (entry.type() == UconfigXML::NormalEntry)
+        case UconfigXML::NormalEntry:
+        {
+            // First write the opening tag of the entry
+            fwrite(UCONFIG_IO_XML_DELIMITER_TAG_BEGINOPEN,
+                   sizeof(char),
+                   strlen(UCONFIG_IO_XML_DELIMITER_TAG_BEGINOPEN),
+                   file);
             fwrite(entry.name(), sizeof(char), strlen(entry.name()), file);
 
-        // Then write the attributes (keys)
-        UconfigKeyObject* keyList = entry.keys();
-        if (keyList)
-        {
-            for (i=0; i<entry.keyCount(); i++)
+            // Then write the attributes (keys)
+            if (entry.keyCount() > 0)
             {
                 fwrite(UCONFIG_IO_XML_DELIMITER_ATTRIBUTE,
                        sizeof(char),
                        strlen(UCONFIG_IO_XML_DELIMITER_ATTRIBUTE),
                        file);
-
-                // Write the name of the attribute if any
-                if (keyList[i].name())
-                {
-                    fwrite(keyList[i].name(),
-                           sizeof(char),
-                           strlen(keyList[i].name()),
-                           file);
-                }
-
-                // Write the value of the attribute if any
-                if (keyList[i].value())
-                {
-                    fwrite(UCONFIG_IO_XML_DELIMITER_KEYVAL,
-                           sizeof(char), kvDlength, file);
-                    fwrite(keyList[i].value(),
-                           sizeof(char),
-                           keyList[i].valueSize(),
-                           file);
-                }
+                fwriteEntryKeys(file, entry);
             }
 
-            delete[] keyList;
-        }
-
-        // Then write subentries
-        UconfigEntryObject* subentryList = entry.subentries();
-        if (subentryList)
-        {
-            fwrite(UCONFIG_IO_XML_DELIMITER_TAG_END,
-                   sizeof(char), teDLength, file);
-
-            for (i=0; i<entry.subentryCount(); i++)
+            // Then write subentries (if any)
+            UconfigEntryObject* subentryList = entry.subentries();
+            if (subentryList)
             {
-                fwrite(UCONFIG_IO_XML_DELIMITER_NEWLINE,
-                       sizeof(char), nlDLength, file);
-                fwriteEntry(file, subentryList[i], level + 1);
+                fwrite(UCONFIG_IO_XML_DELIMITER_TAG_END,
+                       sizeof(char),
+                       strlen(UCONFIG_IO_XML_DELIMITER_TAG_END),
+                       file);
+
+                for (int i=0; i<entry.subentryCount(); i++)
+                    fwriteEntry(file, subentryList[i], level + 1);
+
+                // Finally write the closing tag of the entry
+                fwrite(UCONFIG_IO_XML_DELIMITER_TAG_BEGINCLOSE,
+                       sizeof(char),
+                       strlen(UCONFIG_IO_XML_DELIMITER_TAG_BEGINCLOSE),
+                       file);
+                fwrite(entry.name(),
+                       sizeof(char),
+                       strlen(entry.name()),
+                       file);
+                fwrite(UCONFIG_IO_XML_DELIMITER_TAG_END,
+                       sizeof(char),
+                       strlen(UCONFIG_IO_XML_DELIMITER_TAG_END),
+                       file);
+
+                delete[] subentryList;
             }
-
-            // Write an additional newline if the body is no empty
-            fwrite(UCONFIG_IO_XML_DELIMITER_NEWLINE,
-                   sizeof(char), nlDLength, file);
-
-            // Finally write the closing tag of the entry
-            Uconfig_fwriteIndentation(file, level);
-            fwrite(UCONFIG_IO_XML_DELIMITER_TAG_BEGINCLOSE,
-                   sizeof(char), tbcDLength, file);
-            fwrite(entry.name(), sizeof(char), strlen(entry.name()), file);
-            fwrite(UCONFIG_IO_XML_DELIMITER_TAG_END,
-                   sizeof(char), teDLength, file);
-
-            delete[] subentryList;
+            else
+            {
+                // Use self-closing tag
+                fwrite(UCONFIG_IO_XML_DELIMITER_TAG_ENDSELF,
+                       sizeof(char),
+                       strlen(UCONFIG_IO_XML_DELIMITER_TAG_ENDSELF),
+                       file);
+            }
+            break;
         }
-        else
-        {
-            // Use self-closing tag
-            fwrite(UCONFIG_IO_XML_DELIMITER_TAG_ENDSELF,
+        case UconfigXML::DoctypeEntry:
+            fwrite(UCONFIG_IO_XML_DELIMITER_DOCTYPE_BEGIN,
                    sizeof(char),
-                   strlen(UCONFIG_IO_XML_DELIMITER_TAG_ENDSELF),
+                   strlen(UCONFIG_IO_XML_DELIMITER_DOCTYPE_BEGIN),
                    file);
-        }
-    }
-    else if (entry.type() == UconfigXML::CommentEntry)
-    {
-        Uconfig_fwriteIndentation(file, level);
-        fwrite(UCONFIG_IO_XML_DELIMITER_COMMENT_BEGIN,
-               sizeof(char),
-               strlen(UCONFIG_IO_XML_DELIMITER_COMMENT_BEGIN),
-               file);
-
-        UconfigKeyObject* keyList = entry.keys();
-        if (keyList)
-        {
-            for (i=0; i<entry.keyCount(); i++)
-            {
-                // Write an additional newline between comments
-                if (i > 0)
-                {
-                    fwrite(UCONFIG_IO_XML_DELIMITER_NEWLINE,
-                           sizeof(char), nlDLength, file);
-                }
-
-                // Write the value of the key directly
-                if (keyList[i].value())
-                {
-                    fwrite(keyList[i].value(),
-                           sizeof(char),
-                           keyList[i].valueSize(),
-                           file);
-                }
-            }
-            delete[] keyList;
-        }
-
-        fwrite(UCONFIG_IO_XML_DELIMITER_COMMENT_END,
-               sizeof(char),
-               strlen(UCONFIG_IO_XML_DELIMITER_COMMENT_END),
-               file);
-    }
-    else if (entry.type() == UconfigXML::CDATAEntry)
-    {
-        fwrite(UCONFIG_IO_XML_DELIMITER_CDATA_BEGIN,
-               sizeof(char),
-               strlen(UCONFIG_IO_XML_DELIMITER_CDATA_BEGIN),
-               file);
-
-        UconfigKeyObject* keyList = entry.keys();
-        if (keyList)
-        {
-            for (i=0; i<entry.keyCount(); i++)
-            {
-                // Write the value of the key directly
-                if (keyList[i].value())
-                {
-                    fwrite(keyList[i].value(),
-                           sizeof(char),
-                           keyList[i].valueSize(),
-                           file);
-                }
-            }
-            delete[] keyList;
-        }
-
-        fwrite(UCONFIG_IO_XML_DELIMITER_CDATA_END,
-               sizeof(char),
-               strlen(UCONFIG_IO_XML_DELIMITER_CDATA_END),
-               file);
+            fwriteEntryKeys(file, entry, true);
+            fwrite(UCONFIG_IO_XML_DELIMITER_DOCTYPE_END,
+                   sizeof(char),
+                   strlen(UCONFIG_IO_XML_DELIMITER_DOCTYPE_END),
+                   file);
+            break;
+        case UconfigXML::XMLDeclEntry:
+            fwrite(UCONFIG_IO_XML_DELIMITER_XML_BEGIN,
+                   sizeof(char),
+                   strlen(UCONFIG_IO_XML_DELIMITER_XML_BEGIN),
+                   file);
+            fwriteEntryKeys(file, entry);
+            fwrite(UCONFIG_IO_XML_DELIMITER_XML_END,
+                   sizeof(char),
+                   strlen(UCONFIG_IO_XML_DELIMITER_XML_END),
+                   file);
+            break;
+        case UconfigXML::CommentEntry:
+            fwrite(UCONFIG_IO_XML_DELIMITER_COMMENT_BEGIN,
+                   sizeof(char),
+                   strlen(UCONFIG_IO_XML_DELIMITER_COMMENT_BEGIN),
+                   file);
+            fwriteEntryKeys(file, entry, true);
+            fwrite(UCONFIG_IO_XML_DELIMITER_COMMENT_END,
+                   sizeof(char),
+                   strlen(UCONFIG_IO_XML_DELIMITER_COMMENT_END),
+                   file);
+            break;
+        case UconfigXML::CDATAEntry:
+            fwrite(UCONFIG_IO_XML_DELIMITER_CDATA_BEGIN,
+                   sizeof(char),
+                   strlen(UCONFIG_IO_XML_DELIMITER_CDATA_BEGIN),
+                   file);
+            fwriteEntryKeys(file, entry, true);
+            fwrite(UCONFIG_IO_XML_DELIMITER_CDATA_END,
+                sizeof(char),
+                strlen(UCONFIG_IO_XML_DELIMITER_CDATA_END),
+                file);
+            break;
+        case UconfigXML::TextEntry:
+            fwriteEntryKeys(file, entry, true);
+            break;
+        default:;
     }
 
     return true;
 }
 
+bool UconfigXMLPrivate::fwriteEntryKeys(FILE* file,
+                                        UconfigEntryObject& entry,
+                                        bool valueOnly)
+{
+    UconfigKeyObject* keyList = entry.keys();
+    if (!keyList)
+        return false;
+
+    const int kvDLength = strlen(UCONFIG_IO_XML_DELIMITER_KEYVAL);
+    const int aDLength = strlen(UCONFIG_IO_XML_DELIMITER_ATTRIBUTE);
+
+    for (int i=0; i<entry.keyCount(); i++)
+    {
+        if (i > 0)
+        {
+            fwrite(UCONFIG_IO_XML_DELIMITER_ATTRIBUTE,
+                       sizeof(char), aDLength, file);
+        }
+
+        // Write the name of the attribute if any
+        if (keyList[i].name() && !valueOnly)
+        {
+            fwrite(keyList[i].name(),
+                   sizeof(char),
+                   strlen(keyList[i].name()),
+                   file);
+        }
+
+        // Write the value of the attribute if any
+        if (keyList[i].value())
+        {
+            if (!valueOnly)
+            {
+                fwrite(UCONFIG_IO_XML_DELIMITER_KEYVAL,
+                       sizeof(char), kvDLength, file);
+            }
+            fwrite(keyList[i].value(),
+                   sizeof(char),
+                   keyList[i].valueSize(),
+                   file);
+        }
+    }
+
+    delete[] keyList;
+    return true;
+}
+
 // Parse an attribute expression of format "NAME=VALUE"
+// If COMPLETE is false, then the "NAME=" part can be omitted,
+// and the parsed content is stored as key value.
 // Return the number of chars(bytes) that have been parsed
 int UconfigXMLPrivate::parseTagAttribute(const char* expression,
                                          UconfigKeyObject& key,
-                                         int expressionLength)
+                                         int expressionLength,
+                                         bool complete)
 {
     if (expressionLength <= 0)
         expressionLength = strlen(expression);
 
     // Try to find the delimitor between NAME and VALUE
     int pos = Uconfig_strpos(expression, UCONFIG_IO_XML_DELIMITER_KEYVAL);
-    if (pos <= 0 || pos + 1 >= expressionLength)
+    if (pos + 1 >= expressionLength)
         return 0;
 
-    key.reset();
+    if (pos <= 0)
+    {
+        if (complete)
+        {
+            // Both NAME and VALUE are required: parsing failed
+            return 0;
+        }
+        else
+        {
+            // Ignore parsing name
+            key.reset();
+            pos = 0;
+        }
+    }
+    else
+    {
+        // Extract attribute's name
+        char* keyName = new char[pos + 1];
+        Uconfig_strncpy(keyName, expression, pos);
 
-    // Extract attribute's name
-    char* keyName = new char[pos + 1];
-    Uconfig_strncpy(keyName, expression, pos);
-    key.setName(keyName);
-    delete keyName;
+        key.reset();
+        key.setName(keyName);
+        delete keyName;
+
+        pos += strlen(UCONFIG_IO_XML_DELIMITER_KEYVAL);
+    }
 
     // Try to find the end position of VALUE
-    pos += strlen(UCONFIG_IO_XML_DELIMITER_KEYVAL);
     int pos2 = pos;
     bool end = false;
     bool parsingString = false;
+    char lastStringDelimitor;
     while (pos2 < expressionLength)
     {
         if (parsingString)
         {
-            if (expression[pos2] == '"' || expression[pos2] == '\'')
+            if (expression[pos2] == lastStringDelimitor)
                 parsingString = false;
         }
         else
@@ -518,6 +571,7 @@ int UconfigXMLPrivate::parseTagAttribute(const char* expression,
             case '"':
             case '\'':
                 parsingString = true;
+                lastStringDelimitor = expression[pos2];
                 break;
             default:;
         }
@@ -533,7 +587,7 @@ int UconfigXMLPrivate::parseTagAttribute(const char* expression,
         key.setValue(&expression[pos], pos2 - pos);
     }
 
-    return pos2;
+    return pos2 + 1;
 }
 
 // Try to parse a comment section from the current reading position
@@ -725,11 +779,12 @@ int UconfigXMLPrivate::parseDoctype(FILE* file,
         int pos = 0;
         int attributeLength;
         UconfigKeyObject key;
-        while (true)
+        while (pos < contentLength)
         {
             attributeLength = parseTagAttribute(&buffer[pos],
                                                 key,
-                                                contentLength - pos);
+                                                contentLength - pos,
+                                                false);
             if (attributeLength > 0)
             {
                 entry.addKey(&key);

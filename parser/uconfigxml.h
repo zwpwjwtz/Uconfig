@@ -12,9 +12,10 @@ public:
         UnknownEntry = 0,
         NormalEntry = 1,
         CommentEntry = 2,
-        CDATAEntry = 3,
-        XMLDeclEntry = 4,
-        DoctypeEntry = 5
+        TextEntry = 3,
+        CDATAEntry = 4,
+        XMLDeclEntry = 5,
+        DoctypeEntry = 6
     };
 
     static bool readUconfig(const char* filename,
