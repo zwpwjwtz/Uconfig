@@ -261,7 +261,6 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                 break;
             case UCONFIG_IO_XML_CHAR_KEY_DEFINITION:
                 keyName = buffer;
-                keyName.push_back('\0');
                 buffer.clear();
                 break;
             default:
@@ -351,13 +350,11 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                 // Deal with element names, attribute names and values
                 if (!entry.name())
                 {
-                    buffer.push_back('\0');
-                    entry.setName(buffer.data());
+                    entry.setName(buffer.data(), buffer.size());
                 }
                 else if (keyName.size() == 0)
                 {
                     keyName = buffer;
-                    keyName.push_back('\0');
                 }
                 else
                 {
@@ -384,8 +381,9 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                     // Extra syntax check for non self-closing tags:
                     // See if the name in the closing tag matches
                     // that in the opening tag
-                    buffer.push_back('\0');
-                    if (strcmp(entry.name(), buffer.data()) != 0)
+                    if (strncmp(entry.name(),
+                                buffer.data(),
+                                entry.nameSize()) != 0)
                     {
                         // Tags not matching; ignored
                         // Further error information should be printed
@@ -412,7 +410,7 @@ bool UconfigXMLPrivate::fwriteEntry(FILE* file,
                    sizeof(char),
                    strlen(UCONFIG_IO_XML_DELIMITER_TAG_BEGINOPEN),
                    file);
-            fwrite(entry.name(), sizeof(char), strlen(entry.name()), file);
+            fwrite(entry.name(), sizeof(char), entry.nameSize(), file);
 
             // Then write the attributes (keys)
             if (entry.keyCount() > 0)
@@ -443,7 +441,7 @@ bool UconfigXMLPrivate::fwriteEntry(FILE* file,
                        file);
                 fwrite(entry.name(),
                        sizeof(char),
-                       strlen(entry.name()),
+                       entry.nameSize(),
                        file);
                 fwrite(UCONFIG_IO_XML_DELIMITER_TAG_END,
                        sizeof(char),
@@ -539,7 +537,7 @@ bool UconfigXMLPrivate::fwriteEntryKeys(FILE* file,
         {
             fwrite(keyList[i].name(),
                    sizeof(char),
-                   strlen(keyList[i].name()),
+                   keyList[i].nameSize(),
                    file);
             fwrite(UCONFIG_IO_XML_DELIMITER_KEYVAL,
                    sizeof(char), kvDLength, file);

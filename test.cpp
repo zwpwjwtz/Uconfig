@@ -171,14 +171,14 @@ bool testParserJSON()
         strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_FILENAME).value(),
                filename) == 0;
 
-    success &= config.rootEntry.searchSubentry("\"Apply\"", NULL, true)
+    success &= config.rootEntry.searchSubentry("Apply", NULL, true, 5)
                      .subentryCount() == 1;
 
-    success &= config.rootEntry.searchSubentry("\"Capture\"", NULL, true)
+    success &= config.rootEntry.searchSubentry("Capture", NULL, true, 7)
                      .keyCount() == 1;
 
     UconfigKeyObject* keyList =
-            config.rootEntry.searchSubentry("\"FileList\"", NULL, true).keys();
+            config.rootEntry.searchSubentry("FileList", NULL, true, 8).keys();
     success &=
         strncmp(keyList[4].value(),
                 "/usr/lib/python3.5/",
@@ -225,6 +225,27 @@ bool testParserXML()
     return success;
 }
 
+bool testJSON2XML()
+{
+    const char* filename = "./SampleConfigs/firefox.json";
+    const char* outputFileName = "./SampleConfigs/firefox.json.xml";
+    const char* rootElementName = "firefox";
+
+    UconfigFile config;
+    if (!UconfigJSON::readUconfig(filename, &config))
+        return false;
+
+    bool success = true;
+
+    // Give the outer element a name
+    config.rootEntry.subentries()[0].setName(rootElementName);
+
+    // Export the data to a XML
+    success &= UconfigXML::writeUconfig(outputFileName, &config);
+
+    return success;
+}
+
 int main(int argc, char *argv[])
 {
     if (testFileContainer())
@@ -261,6 +282,11 @@ int main(int argc, char *argv[])
         printf("testParserXML() passed.\n");
     else
         printf("testParserXML() failed!\n");
+
+    if (testJSON2XML())
+        printf("testJSON2XML() passed.\n");
+    else
+        printf("testJSON2XML() failed!\n");
 
     return 0;
 }

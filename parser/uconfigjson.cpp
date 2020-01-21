@@ -108,6 +108,23 @@ bool UconfigJSON::writeUconfig(const char* filename, UconfigFile* config)
     return success;
 }
 
+// Normally, all value names in JSON must be wrapped in a pair of quotes
+// Here, we also accept strings without quotes as value names
+bool UconfigJSONKey::parseName(const char* expression, int length)
+{
+    if (length > 0 &&
+        expression[0] == UCONFIG_IO_JSON_CHAR_STRING &&
+        expression[length - 1] == UCONFIG_IO_JSON_CHAR_STRING)
+    {
+        setName(&expression[1], length - 2);
+    }
+    else
+    {
+        setName(expression, length);
+    }
+    return true;
+}
+
 bool UconfigJSONKey::parseValue(const char* expression, int length)
 {
     if (!expression)
@@ -157,6 +174,15 @@ bool UconfigJSONKey::parseValue(const char* expression, int length)
     return true;
 }
 
+int UconfigJSONKey::fwriteName(FILE *file)
+{
+    const UconfigKey& data = refData ? *refData : propData;
+
+    fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
+    fwrite(data.name, sizeof(char), data.nameSize, file);
+    fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
+}
+
 int UconfigJSONKey::fwriteValue(FILE* file)
 {
     char* buffer = NULL;
@@ -199,6 +225,32 @@ int UconfigJSONKey::fwriteValue(FILE* file)
     return length;
 }
 
+
+bool UconfigJSONEntry::parseName(const char* expression, int length)
+{
+    if (length > 0 &&
+        expression[0] == UCONFIG_IO_JSON_CHAR_STRING &&
+        expression[length - 1] == UCONFIG_IO_JSON_CHAR_STRING)
+    {
+        setName(&expression[1], length - 2);
+    }
+    else
+    {
+        setName(expression, length);
+    }
+    return true;
+}
+
+int UconfigJSONEntry::fwriteName(FILE *file)
+{
+    const UconfigEntry& data = refData ? *refData : propData;
+
+    fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
+    fwrite(data.name, sizeof(char), data.nameSize, file);
+    fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
+}
+
+
 int UconfigJSONPrivate::freadEntry(FILE* file,
                                    UconfigEntryObject& entry)
 {
@@ -210,7 +262,7 @@ int UconfigJSONPrivate::freadEntry(FILE* file,
     char bufferChar;
     std::vector<char> buffer, elementName;
     UconfigJSONKey tempKey;
-    UconfigEntryObject tempSubentry;
+    UconfigJSONEntry tempSubentry;
 
     entry.reset();
     while (true)
@@ -265,7 +317,6 @@ int UconfigJSONPrivate::freadEntry(FILE* file,
                     break;
                 case UCONFIG_IO_JSON_CHAR_DEFINITION:
                     elementName = buffer;
-                    elementName.push_back('\0');
                     buffer.clear();
                     break;
                 case UCONFIG_IO_JSON_CHAR_STRING:
@@ -280,18 +331,18 @@ int UconfigJSONPrivate::freadEntry(FILE* file,
             if (tempSubentry.type() == UconfigJSON::UnknownEntry)
             {
                 // Non object/array value: store it as a key
-                tempKey.setName(elementName.data(), elementName.size());
+                tempKey.parseName(elementName.data(), elementName.size());
                 tempKey.parseValue(buffer.data(), buffer.size());
                 entry.addKey(&tempKey);
-                tempKey.reset();
                 buffer.clear();
             }
             else
             {
-                tempSubentry.setName(elementName.data());
+                tempSubentry.parseName(elementName.data(), elementName.size());
                 entry.addSubentry(&tempSubentry);
             }
 
+            tempKey.reset();
             elementName.clear();
             tempSubentry.setType(UconfigJSON::UnknownEntry);
 
@@ -343,10 +394,7 @@ bool UconfigJSONPrivate::fwriteEntry(FILE* file,
             // Write the name of the key if any
             if (keyList[i].name())
             {
-                fwrite(keyList[i].name(),
-                       sizeof(char),
-                       keyList[i].nameSize(),
-                       file);
+                keyList[i].fwriteName(file);
                 fwrite(UCONFIG_IO_JSON_DELIMITER_DEFINITION,
                        sizeof(char), dDLength, file);
             }
@@ -359,7 +407,7 @@ bool UconfigJSONPrivate::fwriteEntry(FILE* file,
     }
 
     // Then write subentries as arrays and objects
-    UconfigEntryObject* subentryList = entry.subentries();
+    UconfigJSONEntry* subentryList = (UconfigJSONEntry*)(entry.subentries());
     if (subentryList)
     {
         // Add an additional comma between keys and subentries
@@ -381,10 +429,7 @@ bool UconfigJSONPrivate::fwriteEntry(FILE* file,
             if (subentryList[i].name() &&
                 entry.type() == UconfigJSON::ObjectEntry)
             {
-                fwrite(subentryList[i].name(),
-                       sizeof(char),
-                       strlen(subentryList[i].name()),
-                       file);
+                subentryList[i].fwriteName(file);
                 fwrite(UCONFIG_IO_JSON_DELIMITER_DEFINITION,
                        sizeof(char), dDLength, file);
             }
