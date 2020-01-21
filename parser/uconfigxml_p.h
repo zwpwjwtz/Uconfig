@@ -1,10 +1,18 @@
 #ifndef UCONFIGXML_P_H
 #define UCONFIGXML_P_H
 
-#include "uconfigentryobject.h"
+#include "uconfigio.h"
 
 
 typedef struct _IO_FILE FILE;
+
+class UconfigXMLKey : public UconfigKeyObject, public UconfigIO
+{
+public:
+    bool parseValue(const char* expression, int length = 0);
+
+    int fwriteValue(FILE* file);
+};
 
 class UconfigXMLPrivate
 {

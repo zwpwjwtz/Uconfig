@@ -97,11 +97,86 @@ bool UconfigXML::writeUconfig(const char* filename, UconfigFile* config)
 }
 
 
-UconfigValueType UconfigXMLPrivate::getValueType(const char* value,
-                                                  int length)
+// Parse the value of an attribute from a given expression.
+// Normally, all values are wrapped in a pair of quotes and
+// they are seen as strings.
+// Here we try to parse values that are not delimited by quotes,
+// and assign it a specific value type.
+bool UconfigXMLKey::parseValue(const char* expression, int length)
 {
-    return UconfigValueType::Chars;
+    if (!expression)
+        return false;
+
+    char* pTail;
+
+    UconfigValueType valueType = guessValueType(expression, length);
+    switch (valueType)
+    {
+        case UconfigValueType::Chars:
+        {
+            // Ignore wrapping quotes when storing
+            setValue(&expression[1], length - sizeof(char) * 2);
+            break;
+        }
+        case UconfigValueType::Integer:
+        {
+            // Store the number as an "int"
+            int tempInt = int(strtol(expression, &pTail, 0));
+            if (pTail > expression)
+                setValue((char*)(&tempInt), sizeof(int));
+            break;
+        }
+        case UconfigValueType::Float:
+        case UconfigValueType::Double:
+        {
+            // Store the number as a "double"
+            double tempDouble = strtod(expression, &pTail);
+            if (pTail > expression)
+                setValue((char*)(&tempDouble), sizeof(double));
+            break;
+        }
+        default:
+            setValue(expression, length);
+    }
+
+    setType(valueType);
+    return true;
 }
+
+int UconfigXMLKey::fwriteValue(FILE* file)
+{
+    char* buffer = NULL;
+
+    int length = 0;
+    switch (UconfigValueType(type()))
+    {
+        case UconfigValueType::Chars:
+            // Wrap string with quotes
+            fputc(UCONFIG_IO_XML_CHAR_STRING, file);
+            fwrite(value(), valueSize(), sizeof(char), file);
+            fputc(UCONFIG_IO_XML_CHAR_STRING, file);
+            break;
+        case UconfigValueType::Integer:
+            length = asprintf(&buffer, "%d", *(int*)(value()));
+            fwrite(buffer, length, sizeof(char), file);
+            break;
+        case UconfigValueType::Float:
+            length = asprintf(&buffer, "%f", *(float*)(value()));
+            fwrite(buffer, length, sizeof(char), file);
+            break;
+        case UconfigValueType::Double:
+            length = asprintf(&buffer, "%f", *(double*)(value()));
+            fwrite(buffer, length, sizeof(char), file);
+            break;
+        default:
+            fwrite(value(), valueSize(), sizeof(char), file);
+    }
+    if (buffer)
+        free(buffer);
+
+    return length;
+}
+
 
 int UconfigXMLPrivate::freadEntry(FILE* file,
                                   UconfigEntryObject& entry,
@@ -117,8 +192,7 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
     char bufferChar;
     char lastStringDelimitor;
     std::vector<char> buffer, keyName;
-    UconfigValueType valueType;
-    UconfigKeyObject tempKey;
+    UconfigXMLKey tempKey;
     UconfigEntryObject tempSubentry;
 
     entry.reset();
@@ -287,21 +361,8 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                 }
                 else
                 {
-                    valueType = getValueType(buffer.data(), buffer.size());
-                    switch (valueType)
-                    {
-                        case UconfigValueType::Bool:
-                        case UconfigValueType::Chars:
-                        case UconfigValueType::Integer:
-                        case UconfigValueType::Float:
-                        case UconfigValueType::Double:
-                            tempKey.setType(UconfigValueType::Chars);
-                            break;
-                        default:
-                            tempKey.setType(UconfigValueType::Raw);
-                    }
-                    tempKey.setName(keyName.data());
-                    tempKey.setValue(buffer.data(), buffer.size());
+                    tempKey.parseValue(buffer.data(), buffer.size());
+                    tempKey.setName(keyName.data(), keyName.size());
                     entry.addKey(&tempKey);
                     keyName.clear();
                 }
@@ -458,7 +519,7 @@ bool UconfigXMLPrivate::fwriteEntryKeys(FILE* file,
                                         UconfigEntryObject& entry,
                                         bool valueOnly)
 {
-    UconfigKeyObject* keyList = entry.keys();
+    UconfigXMLKey* keyList = (UconfigXMLKey*)(entry.keys());
     if (!keyList)
         return false;
 
@@ -480,21 +541,12 @@ bool UconfigXMLPrivate::fwriteEntryKeys(FILE* file,
                    sizeof(char),
                    strlen(keyList[i].name()),
                    file);
+            fwrite(UCONFIG_IO_XML_DELIMITER_KEYVAL,
+                   sizeof(char), kvDLength, file);
         }
 
-        // Write the value of the attribute if any
-        if (keyList[i].value())
-        {
-            if (!valueOnly)
-            {
-                fwrite(UCONFIG_IO_XML_DELIMITER_KEYVAL,
-                       sizeof(char), kvDLength, file);
-            }
-            fwrite(keyList[i].value(),
-                   sizeof(char),
-                   keyList[i].valueSize(),
-                   file);
-        }
+        // Write the value of the attribute
+        keyList[i].fwriteValue(file);
     }
 
     delete[] keyList;

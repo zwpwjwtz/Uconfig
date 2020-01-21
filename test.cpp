@@ -53,6 +53,35 @@ bool testFileContainer()
     return success;
 }
 
+bool testGuessValueType()
+{
+    const char* sampleChars = "\"339f,jF)9j4hhh.falseG;;1\"";
+    const char* sampleInteger = "26978274";
+    const char* sampleDouble = "269.78274";
+    const char* sampleBool = "FaLsE";
+    const char* sampleRaw1 = "\"633401'";
+    const char* sampleRaw2 = "633.401E23";
+    const char* sampleRaw3 = "633401False";
+
+    bool success = true;
+    success &= UconfigIO::guessValueType(sampleChars, strlen(sampleChars))
+                    == UconfigValueType::Chars;
+    success &= UconfigIO::guessValueType(sampleInteger, strlen(sampleInteger))
+                    == UconfigValueType::Integer;
+    success &= UconfigIO::guessValueType(sampleDouble, strlen(sampleDouble))
+                    == UconfigValueType::Double;
+    success &= UconfigIO::guessValueType(sampleBool, strlen(sampleBool))
+                    == UconfigValueType::Bool;
+    success &= UconfigIO::guessValueType(sampleRaw1, strlen(sampleRaw1))
+                    == UconfigValueType::Raw;
+    success &= UconfigIO::guessValueType(sampleRaw2, strlen(sampleRaw2))
+                    == UconfigValueType::Raw;
+    success &= UconfigIO::guessValueType(sampleRaw3, strlen(sampleRaw3))
+                    == UconfigValueType::Raw;
+
+    return success;
+}
+
 
 bool testParserKeyValue()
 {
@@ -152,7 +181,7 @@ bool testParserJSON()
             config.rootEntry.searchSubentry("\"FileList\"", NULL, true).keys();
     success &=
         strncmp(keyList[4].value(),
-                "\"/usr/lib/python3.5/\"",
+                "/usr/lib/python3.5/",
                 keyList[4].valueSize()) == 0;
 
     success &= UconfigJSON::writeUconfig(outputFileName, &config);
@@ -202,6 +231,11 @@ int main(int argc, char *argv[])
         printf("testFileContainer() passed.\n");
     else
         printf("testFileContainer() failed!\n");
+
+    if (testGuessValueType())
+        printf("testGuessValueType() passed.\n");
+    else
+        printf("testGuessValueType() failed!\n");
 
     if (testParserKeyValue())
         printf("testParserKeyValue() passed.\n");

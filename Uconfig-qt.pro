@@ -36,7 +36,8 @@ SOURCES += test.cpp \
     parser/uconfig2dtable.cpp \
     parser/uconfigkeyvalue.cpp \
     parser/uconfigjson.cpp \
-    parser/uconfigxml.cpp
+    parser/uconfigxml.cpp \
+    parser/uconfigio.cpp
 
 HEADERS  += \
     parser/uconfigentry.h \

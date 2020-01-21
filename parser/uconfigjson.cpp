@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <vector>
 #include "uconfigjson.h"
@@ -15,6 +16,9 @@
 #define UCONFIG_IO_JSON_CHAR_STRING             '"'
 #define UCONFIG_IO_JSON_DELIMITER_NEWLINE       "\n"
 #define UCONFIG_IO_JSON_DELIMITER_DEFINITION    ": "
+
+#define UCONFIG_IO_JSON_EXPRESSION_BOOL_FALSE   "false"
+#define UCONFIG_IO_JSON_EXPRESSION_BOOL_TRUE    "true"
 
 
 bool UconfigJSON::readUconfig(const char* filename, UconfigFile* config)
@@ -104,11 +108,95 @@ bool UconfigJSON::writeUconfig(const char* filename, UconfigFile* config)
     return success;
 }
 
-
-UconfigValueType UconfigJSONPrivate::getValueType(const char* value,
-                                                  int length)
+bool UconfigJSONKey::parseValue(const char* expression, int length)
 {
-    return UconfigValueType::Chars;
+    if (!expression)
+        return false;
+
+    char* pTail;
+
+    UconfigValueType valueType = guessValueType(expression, length);
+    switch (valueType)
+    {
+        case UconfigValueType::Bool:
+        {
+            bool tempBool = strcasestr(expression,
+                                       UCONFIG_IO_JSON_EXPRESSION_BOOL_TRUE)
+                            == expression;
+            setValue((char*)(&tempBool), sizeof(bool));
+            break;
+        }
+        case UconfigValueType::Chars:
+        {
+            // Ignore wrapping quotes when storing
+            setValue(&expression[1], length - sizeof(char) * 2);
+            break;
+        }
+        case UconfigValueType::Integer:
+        {
+            // Store the number as an "int"
+            int tempInt = int(strtol(expression, &pTail, 0));
+            if (pTail > expression)
+                setValue((char*)(&tempInt), sizeof(int));
+            break;
+        }
+        case UconfigValueType::Float:
+        case UconfigValueType::Double:
+        {
+            // Store the number as a "double"
+            double tempDouble = strtod(expression, &pTail);
+            if (pTail > expression)
+                setValue((char*)(&tempDouble), sizeof(double));
+            break;
+        }
+        default:
+            setValue(expression, length);
+    }
+
+    setType(valueType);
+    return true;
+}
+
+int UconfigJSONKey::fwriteValue(FILE* file)
+{
+    char* buffer = NULL;
+
+    int length = 0;
+    switch (UconfigValueType(type()))
+    {
+        case UconfigValueType::Bool:
+        {
+            const char* boolExp = *(bool*)(value()) ?
+                             UCONFIG_IO_JSON_EXPRESSION_BOOL_TRUE :
+                             UCONFIG_IO_JSON_EXPRESSION_BOOL_FALSE;
+            fwrite(boolExp, strlen(boolExp), sizeof(char), file);
+            break;
+        }
+        case UconfigValueType::Chars:
+            // Wrap string with quotes
+            fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
+            fwrite(value(), valueSize(), sizeof(char), file);
+            fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
+            break;
+        case UconfigValueType::Integer:
+            length = asprintf(&buffer, "%d", *(int*)(value()));
+            fwrite(buffer, length, sizeof(char), file);
+            break;
+        case UconfigValueType::Float:
+            length = asprintf(&buffer, "%f", *(float*)(value()));
+            fwrite(buffer, length, sizeof(char), file);
+            break;
+        case UconfigValueType::Double:
+            length = asprintf(&buffer, "%f", *(double*)(value()));
+            fwrite(buffer, length, sizeof(char), file);
+            break;
+        default:
+            fwrite(value(), valueSize(), sizeof(char), file);
+    }
+    if (buffer)
+        free(buffer);
+
+    return length;
 }
 
 int UconfigJSONPrivate::freadEntry(FILE* file,
@@ -121,8 +209,7 @@ int UconfigJSONPrivate::freadEntry(FILE* file,
     bool parsingString = false;
     char bufferChar;
     std::vector<char> buffer, elementName;
-    UconfigValueType valueType;
-    UconfigKeyObject tempKey;
+    UconfigJSONKey tempKey;
     UconfigEntryObject tempSubentry;
 
     entry.reset();
@@ -193,22 +280,8 @@ int UconfigJSONPrivate::freadEntry(FILE* file,
             if (tempSubentry.type() == UconfigJSON::UnknownEntry)
             {
                 // Non object/array value: store it as a key
-                valueType = getValueType(buffer.data(), buffer.size());
-                switch (valueType)
-                {
-                    case UconfigValueType::Bool:
-                    case UconfigValueType::Chars:
-                    case UconfigValueType::Integer:
-                    case UconfigValueType::Float:
-                    case UconfigValueType::Double:
-                        tempKey.setType(UconfigValueType::Chars);
-                        tempKey.setValue(buffer.data(), buffer.size());
-                        break;
-                    default:
-                        tempKey.setType(UconfigValueType::Raw);
-                        tempKey.setValue(buffer.data(), buffer.size());
-                }
-                tempKey.setName(elementName.data());
+                tempKey.setName(elementName.data(), elementName.size());
+                tempKey.parseValue(buffer.data(), buffer.size());
                 entry.addKey(&tempKey);
                 tempKey.reset();
                 buffer.clear();
@@ -255,7 +328,7 @@ bool UconfigJSONPrivate::fwriteEntry(FILE* file,
     }
 
     // First write the values of keys
-    UconfigKeyObject* keyList = entry.keys();
+    UconfigJSONKey* keyList = (UconfigJSONKey*)(entry.keys());
     if (keyList)
     {
         for (i=0; i<entry.keyCount(); i++)
@@ -272,17 +345,14 @@ bool UconfigJSONPrivate::fwriteEntry(FILE* file,
             {
                 fwrite(keyList[i].name(),
                        sizeof(char),
-                       strlen(keyList[i].name()),
+                       keyList[i].nameSize(),
                        file);
                 fwrite(UCONFIG_IO_JSON_DELIMITER_DEFINITION,
                        sizeof(char), dDLength, file);
             }
 
             // Write the value of the key
-            fwrite(keyList[i].value(),
-                   sizeof(char),
-                   keyList[i].valueSize(),
-                   file);
+            keyList[i].fwriteValue(file);
         }
 
         delete[] keyList;
