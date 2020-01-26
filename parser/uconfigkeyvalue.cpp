@@ -148,7 +148,7 @@ int UconfigKeyValuePrivate::parseExpKeyValue(const char* expression,
 
     // See if the comment delimiter appears in a right place
     int pos = Uconfig_strpos(expression, delimiter);
-    if (pos <= 0 || pos + 1 >= expressionLength)
+    if (pos <= 0 || pos >= expressionLength)
         return 0;
 
     key.reset();
@@ -203,8 +203,6 @@ bool UconfigKeyValuePrivate::fwriteEntry(FILE* file,
                                          const char* keyValueDelimiter,
                                          const char* commentDelimiter)
 {
-    if (entry.type() == UconfigKeyValue::UnknownEntry)
-        return false;
     if (entry.subentryCount() < 1)
         return true;
 

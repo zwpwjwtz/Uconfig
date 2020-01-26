@@ -198,12 +198,6 @@ int UconfigJSONKey::fwriteValue(FILE* file)
             fwrite(boolExp, strlen(boolExp), sizeof(char), file);
             break;
         }
-        case UconfigValueType::Chars:
-            // Wrap string with quotes
-            fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
-            fwrite(value(), valueSize(), sizeof(char), file);
-            fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
-            break;
         case UconfigValueType::Integer:
             length = asprintf(&buffer, "%d", *(int*)(value()));
             fwrite(buffer, length, sizeof(char), file);
@@ -216,8 +210,12 @@ int UconfigJSONKey::fwriteValue(FILE* file)
             length = asprintf(&buffer, "%f", *(double*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
+        case UconfigValueType::Chars:
         default:
+            // Wrap string with quotes
+            fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
             fwrite(value(), valueSize(), sizeof(char), file);
+            fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
     }
     if (buffer)
         free(buffer);

@@ -25,10 +25,19 @@ bool Uconfig2DTable::readUconfig(const char* filename, UconfigFile* config)
 
 bool Uconfig2DTable::writeUconfig(const char* filename, UconfigFile* config)
 {
+    // If there are delimiters previously specified during file parsing,
+    // then take them directly
     const char* rowDelimiter =
             config->metadata.searchKey(UCONFIG_METADATA_KEY_ROWDELIM).value();
     const char* columnDelimitor =
             config->metadata.searchKey(UCONFIG_METADATA_KEY_COLDELIM).value();
+
+    // Otherwise, use default delimiters
+    if (!rowDelimiter)
+        rowDelimiter = UCONFIG_IO_2DTABLE_DELIMITER_ROW;
+    if (!columnDelimitor)
+        columnDelimitor = UCONFIG_IO_2DTABLE_DELIMITER_COL;
+
     return writeUconfig(filename, config, rowDelimiter, columnDelimitor);
 }
 

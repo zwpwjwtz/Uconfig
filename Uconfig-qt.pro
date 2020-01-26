@@ -28,7 +28,7 @@ DEFINES += QT_DEPRECATED_WARNINGS APP_VERSION=\\\"$$VERSION\\\"
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 
-SOURCES += test.cpp \
+SOURCES += main.cpp \
     parser/uconfigfile.cpp \
     parser/uconfigentryobject.cpp \
     parser/uconfigini.cpp \
@@ -37,7 +37,10 @@ SOURCES += test.cpp \
     parser/uconfigkeyvalue.cpp \
     parser/uconfigjson.cpp \
     parser/uconfigxml.cpp \
-    parser/uconfigio.cpp
+    parser/uconfigio.cpp \
+    test/testbasic.cpp \
+    test/testparser.cpp \
+    test/testconversion.cpp
 
 HEADERS  += \
     parser/uconfigentry.h \
