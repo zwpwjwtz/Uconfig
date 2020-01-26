@@ -232,7 +232,7 @@ bool UconfigKeyValuePrivate::fwriteEntry(FILE* file,
                 {
                     fwrite(keyList[j].name(),
                            sizeof(char),
-                           strlen(keyList[j].name()),
+                           keyList[j].nameSize(),
                            file);
                     fwrite(keyValueDelimiter, sizeof(char), kvDLength, file);
                 }
