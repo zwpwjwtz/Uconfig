@@ -38,20 +38,32 @@ public:
     bool loadFile();
     bool saveFile(bool forceSavingAs = false);
 
+    void updateWindowTitle();
+
     void reloadEntryList();
+    bool addSubentry(const QModelIndex& parentIndex,
+                     const UconfigEntryObject* newEntry = NULL);
+    bool removeEntry(const QModelIndex& index);
+
     void reloadKeyList(UconfigEntryObject& entry);
+    bool addKey(const QModelIndex& parentIndex,
+                const UconfigKeyObject* newKey = NULL);
+    bool removeKey(const QModelIndex& index);
 
     static QString keyTypeToString(UconfigValueType valueType);
     static QString keyValueToString(const UconfigKeyObject& key);
 
 private:
     Ui::UconfigEditor *ui;
+    QMenu* menuTreeSubentry;
+    QMenu* menuListKey;
 
 protected:
     bool modified = false;
     UconfigFile currentFile;
     UconfigEntryObject* currentEntry;
 
+    QStandardItem* entryListRoot;
     QStandardItemModel modelEntryList;
     QStandardItemModel modelKeyList;
     QStandardItemModel modelKeyListHeader;
@@ -59,14 +71,16 @@ protected:
     void resetEntryList();
     void resetKeyList();
 
-    void loadEntry(QStandardItem* parent, UconfigEntryObject& entry);
+    void loadEntry(QStandardItem* parent, const UconfigEntryObject &entry);
+    void loadKey(const UconfigKeyObject& key);
+
     UconfigEntryObject* modelIndexToEntry(const QModelIndex& item);
+    UconfigKeyObject* modelIndexToKey(const QModelIndex& index);
 
     void closeEvent(QCloseEvent* event);
 
 private slots:
-    void onEntryListItemClicked(const QModelIndex& index);
-
+    // Auto-connected slots
     void on_actionNew_triggered();
     void on_actionOpen_triggered();
     void on_actionSave_triggered();
@@ -76,8 +90,18 @@ private slots:
     void on_actionCopy_triggered();
     void on_actionCut_triggered();
     void on_actionPaste_triggered();
-    void on_actionDuplicate_triggered();
     void on_actionAbout_triggered();
+    void on_treeSubentry_customContextMenuRequested(const QPoint &pos);
+    void on_listKey_customContextMenuRequested(const QPoint &pos);
+
+    // Manually connected slots
+    void onEntryListItemClicked(const QModelIndex& index);
+    void onActionAddSubentry_triggered();
+    void onActionDuplicateEntry_triggered();
+    void onActionDeleteEntry_triggered();
+    void onActionAddKey_triggered();
+    void onActionDuplicateKey_triggered();
+    void onActionDeleteKey_triggered();
 };
 
 #endif // UCONFIGEDITOR_H

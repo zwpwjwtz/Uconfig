@@ -19,6 +19,8 @@ bool UconfigKeyValue::readUconfig(const char* filename, UconfigFile* config)
     if (!inputFile)
         return false;
 
+    config->rootEntry.reset();
+
     UconfigKeyObject tempKey, tempComment;
     UconfigEntryObject tempSubentry;
     UconfigEntryObject& rootEntry = config->rootEntry;

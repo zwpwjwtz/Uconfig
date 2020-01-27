@@ -55,6 +55,8 @@ bool Uconfig2DTable::readUconfig(const char* filename,
     if (!inputFile)
         return false;
 
+    config->rootEntry.reset();
+
     UconfigEntryObject tempEntry, tempSubentry;
     UconfigKeyObject tempKey;
     tempEntry.setType(Uconfig2DTable::UnknownEntry);

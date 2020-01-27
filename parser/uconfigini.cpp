@@ -21,6 +21,8 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
     if (!inputFile)
         return false;
 
+    config->rootEntry.reset();
+
     UconfigEntryObject tempEntry, tempSubentry;
     UconfigKeyObject tempKey, tempComment;
     tempEntry.setType(UconfigINI::UnknownEntry);

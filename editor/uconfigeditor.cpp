@@ -8,10 +8,15 @@
 #include "parser/uconfigjson.h"
 #include "parser/uconfigxml.h"
 
+#define UCONFIG_EDITOR_ENTRY_NAME_PREFIX    "UCONFIGEDITOR_ENTRY_"
+#define UCONFIG_EDITOR_KEY_NAME_PREFIX      "UCONFIGEDITOR_KEY_"
+
 #define UCONFIG_EDITOR_TREEVIEW_TEXT_ROOT   "/"
 #define UCONFIG_EDITOR_TREEVIEW_TEXT_NONAME "(No name)"
+#define UCONFIG_EDITOR_TREEVIEW_TEXT_NEW    "New entry"
 
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_NONAME "(No name)"
+#define UCONFIG_EDITOR_LISTVIEW_TEXT_NEW    "New key"
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_RAW    "(Raw)"
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_BOOL_T "True"
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_BOOL_F "False"
@@ -30,14 +35,15 @@ UconfigEditor::UconfigEditor(QWidget* parent) :
 {
     reset();
 
+    menuTreeSubentry = NULL;
+    menuListKey = NULL;
+
     ui->setupUi(this);
     ui->treeSubentry->setModel(&modelEntryList);
     ui->treeSubentry->setHeaderHidden(true);
-    ui->treeSubentry->setExpanded(modelEntryList.index(0, 0), true);
+    ui->treeSubentry->setExpanded(entryListRoot->index(), true);
     ui->listKey->setModel(&modelKeyList);
-
-    currentEntry = NULL;
-    lastSavingPath = QApplication::applicationDirPath();
+    updateWindowTitle();
 
     connect(ui->treeSubentry, SIGNAL(clicked(const QModelIndex&)),
             this, SLOT(onEntryListItemClicked(const QModelIndex&)));
@@ -54,14 +60,17 @@ UconfigEditor::~UconfigEditor()
 void UconfigEditor::reset()
 {
     modified = false;
+    fileName.clear();
+    lastSavingFilter.clear();
+    lastSavingPath = QApplication::applicationDirPath();
 
     currentFile.rootEntry.reset();
     currentFile.metadata.reset();
 
+    currentEntry = NULL;
+
     resetEntryList();
     resetKeyList();
-
-    setWindowTitle("New file");
 }
 
 bool UconfigEditor::confirmSaving()
@@ -77,11 +86,9 @@ bool UconfigEditor::confirmSaving()
                              QMessageBox::No |
                              QMessageBox::Cancel);
     if (response == QMessageBox::Yes)
-    {
-        return true;
-    }
-    else if (response == QMessageBox::No)
         return saveFile();
+    else if (response == QMessageBox::No)
+        return true;
     else
         return false;
 }
@@ -106,7 +113,7 @@ bool UconfigEditor::loadFile()
     lastSavingPath = newFileName;
 
     bool success = false;
-    const char* fileNameChars = newFileName.toLocal8Bit().constData();
+    const char* fileNameChars = newFileName.toUtf8().constData();
     if (newFileName.toLower().endsWith(".ini"))
         success = UconfigINI::readUconfig(fileNameChars, &currentFile);
     else if (newFileName.toLower().endsWith(".json"))
@@ -118,6 +125,7 @@ bool UconfigEditor::loadFile()
     if (success)
     {
         fileName = newFileName;
+        updateWindowTitle();
         reloadEntryList();
         return true;
     }
@@ -156,7 +164,7 @@ bool UconfigEditor::saveFile(bool forceSavingAs)
         lastSavingPath = newFileName;
 
     bool success = false;
-    const char* fileNameChars = newFileName.toLocal8Bit().constData();
+    const char* fileNameChars = newFileName.toUtf8().constData();
     if (newFileName.toLower().endsWith(".ini"))
         success = UconfigINI::writeUconfig(fileNameChars, &currentFile);
     else if (newFileName.toLower().endsWith(".json"))
@@ -168,26 +176,96 @@ bool UconfigEditor::saveFile(bool forceSavingAs)
     if (success)
     {
         fileName = newFileName;
+        updateWindowTitle();
+        modified = false;
         return true;
     }
     else
         return false;
 }
 
+void UconfigEditor::updateWindowTitle()
+{
+    QString windowTitle(QFileInfo(fileName).fileName());
+    if (windowTitle.isEmpty())
+        windowTitle = "Uconfig Editor";
+    else
+        windowTitle.append(" - Uconfig Editor");
+    setWindowTitle(windowTitle);
+}
+
 void UconfigEditor::reloadEntryList()
 {
     // Clear existing subentries
-    QStandardItem* root = modelEntryList.item(0, 0);
-    root->removeRows(0, root->rowCount());
+    entryListRoot->removeRows(0, entryListRoot->rowCount());
 
     // Append the subentries as child nodes
     UconfigEntryObject* subentryList = currentFile.rootEntry.subentries();
     if (subentryList)
     {
         for (int i=0; i<currentFile.rootEntry.subentryCount(); i++)
-            loadEntry(root, subentryList[i]);
+            loadEntry(entryListRoot, subentryList[i]);
         delete[] subentryList;
     }
+}
+
+bool UconfigEditor::addSubentry(const QModelIndex& parentIndex,
+                                const UconfigEntryObject* newEntry)
+{
+    UconfigEntryObject* parent = modelIndexToEntry(parentIndex);
+    if (!parent)
+        parent = &currentFile.rootEntry;
+
+    if (newEntry)
+    {
+        parent->addSubentry(newEntry);
+        loadEntry(modelEntryList.itemFromIndex(parentIndex), *newEntry);
+    }
+    else
+    {
+        UconfigEntryObject tempEntry;
+        tempEntry.setName(UCONFIG_EDITOR_TREEVIEW_TEXT_NEW);
+        parent->addSubentry(&tempEntry);
+        loadEntry(modelEntryList.itemFromIndex(parentIndex), tempEntry);
+    }
+
+    modified = true;
+    return true;
+}
+
+bool UconfigEditor::removeEntry(const QModelIndex& index)
+{
+    if (!index.isValid() || index == entryListRoot->index())
+        return false;
+
+    UconfigEntryObject* entry = modelIndexToEntry(index);
+    if (entry)
+    {
+        // First assign the entry a temporary but unique name
+        UconfigEntryObject* parent = index.parent() == entryListRoot->index() ?
+                                     &currentFile.rootEntry :
+                                     modelIndexToEntry(index.parent());
+        QByteArray tempName;
+        while (true)
+        {
+            tempName = UCONFIG_EDITOR_ENTRY_NAME_PREFIX;
+            tempName.append(QByteArray::number(qrand()));
+            if (!parent->searchSubentry(tempName.constData(),
+                                        NULL,
+                                        false,
+                                        tempName.size())
+                                       .name())
+                break;
+        }
+        entry->setName(tempName.constData(), tempName.size());
+
+        // Then delete the entry by its name
+        parent->deleteSubentry(tempName.constData(), tempName.size());
+    }
+    modelEntryList.removeRow(index.row(), index.parent());
+
+    modified = true;
+    return true;
 }
 
 void UconfigEditor::reloadKeyList(UconfigEntryObject& entry)
@@ -197,28 +275,66 @@ void UconfigEditor::reloadKeyList(UconfigEntryObject& entry)
     UconfigKeyObject* keyList = entry.keys();
     if (keyList)
     {
-        QString rowName;
-        QList<QStandardItem*> itemList;
         for (int i=0; i<entry.keyCount(); i++)
-        {
-            if (keyList[i].name())
-                rowName = QByteArray(keyList[i].name(),
-                                     keyList[i].nameSize());
-            else
-                rowName = UCONFIG_EDITOR_LISTVIEW_TEXT_NONAME;
-
-            itemList.append(new QStandardItem(rowName));
-            itemList.append(new QStandardItem(
-                                    keyTypeToString(keyList[i].type())));
-            itemList.append(new QStandardItem(
-                                    keyValueToString(keyList[i])));
-            itemList[0]->setIcon(QIcon(":/icons/file.png"));
-
-            modelKeyList.appendRow(itemList);
-            itemList.clear();
-        }
+            loadKey(keyList[i]);
         delete[] keyList;
     }
+}
+
+bool UconfigEditor::addKey(const QModelIndex& parentIndex,
+                           const UconfigKeyObject* newKey)
+{
+    UconfigEntryObject* parent = parentIndex.isValid() ?
+                                 modelIndexToEntry(parentIndex) :
+                                 currentEntry;
+    if (!parent)
+        return false;
+
+    if (newKey)
+    {
+        parent->addKey(newKey);
+        loadKey(*newKey);
+    }
+    else
+    {
+        UconfigKeyObject tempKey;
+        tempKey.setName(UCONFIG_EDITOR_LISTVIEW_TEXT_NEW);
+        parent->addKey(&tempKey);
+        loadKey(tempKey);
+    }
+
+    modified = true;
+    return true;
+}
+
+bool UconfigEditor::removeKey(const QModelIndex& index)
+{
+    if (!index.isValid())
+        return false;
+
+    UconfigKeyObject* key = modelIndexToKey(index);
+    if (key && currentEntry)
+    {
+        // First assign the key a temporary but unique name
+        QByteArray tempName;
+        while (true)
+        {
+            tempName = UCONFIG_EDITOR_KEY_NAME_PREFIX;
+            tempName.append(QByteArray::number(qrand()));
+            if (!currentEntry->searchKey(tempName.constData(),
+                                         tempName.size())
+                                        .name())
+                break;
+        }
+        key->setName(tempName.constData(), tempName.size());
+
+        // Then delete the key by its name
+        currentEntry->deleteKey(tempName.constData(), tempName.size());
+    }
+    modelKeyList.removeRow(index.row(), index.parent());
+
+    modified = true;
+    return true;
 }
 
 QString UconfigEditor::keyTypeToString(UconfigValueType valueType)
@@ -288,11 +404,11 @@ QString UconfigEditor::keyValueToString(const UconfigKeyObject& key)
 
 void UconfigEditor::resetEntryList()
 {
-    QStandardItem* root = new QStandardItem;
-    root->setText(UCONFIG_EDITOR_TREEVIEW_TEXT_ROOT);
-    root->setEditable(false);
+    entryListRoot = new QStandardItem;
+    entryListRoot->setText(UCONFIG_EDITOR_TREEVIEW_TEXT_ROOT);
+    entryListRoot->setEditable(false);
     modelEntryList.clear();
-    modelEntryList.appendRow(root);
+    modelEntryList.appendRow(entryListRoot);
 }
 
 void UconfigEditor::resetKeyList()
@@ -301,13 +417,15 @@ void UconfigEditor::resetKeyList()
     modelKeyList.setColumnCount(3);
     modelKeyList.setHeaderData(0, Qt::Horizontal, "Name");
     modelKeyList.setHeaderData(1, Qt::Horizontal, "Type");
-    modelKeyList.setHeaderData(2, Qt::Horizontal, "NameValue");
+    modelKeyList.setHeaderData(2, Qt::Horizontal, "Value");
 }
 
-void UconfigEditor::loadEntry(QStandardItem* parent, UconfigEntryObject& entry)
+void UconfigEditor::loadEntry(QStandardItem* parent,
+                              const UconfigEntryObject& entry)
 {
     // Load entries into node recursively
-    QString nodeName;
+    static QString nodeName;
+
     if (entry.nameSize() > 0)
         nodeName = QByteArray(entry.name(), entry.nameSize());
     else
@@ -319,13 +437,34 @@ void UconfigEditor::loadEntry(QStandardItem* parent, UconfigEntryObject& entry)
     parent->appendRow(childNode);
 
     // Deal with subentries...
-    UconfigEntryObject* subentryList = entry.subentries();
+    UconfigEntryObject* subentryList =
+                        const_cast<UconfigEntryObject&>(entry).subentries();
     if (subentryList)
     {
         for (int i=0; i<entry.subentryCount(); i++)
             loadEntry(childNode, subentryList[i]);
         delete[] subentryList;
     }
+}
+
+
+void UconfigEditor::loadKey(const UconfigKeyObject& key)
+{
+    static QString rowName;
+    static QList<QStandardItem*> itemList;
+
+    if (key.name())
+        rowName = QByteArray(key.name(), key.nameSize());
+    else
+        rowName = UCONFIG_EDITOR_LISTVIEW_TEXT_NONAME;
+
+    itemList.clear();
+    itemList.append(new QStandardItem(rowName));
+    itemList.append(new QStandardItem(keyTypeToString(key.type())));
+    itemList.append(new QStandardItem(keyValueToString(key)));
+    itemList[0]->setIcon(QIcon(":/icons/file.png"));
+
+    modelKeyList.appendRow(itemList);
 }
 
 UconfigEntryObject* UconfigEditor::modelIndexToEntry(const QModelIndex& index)
@@ -336,7 +475,7 @@ UconfigEntryObject* UconfigEditor::modelIndexToEntry(const QModelIndex& index)
     // Record the row indexes along the path
     QStack<int> rowIndexes;
     QModelIndex currentIndex = index;
-    QModelIndex rootIndex = modelEntryList.index(0, 0);
+    QModelIndex rootIndex = entryListRoot->index();
     while (!(currentIndex == rootIndex))
     {
         rowIndexes.push(currentIndex.row());
@@ -368,26 +507,28 @@ UconfigEntryObject* UconfigEditor::modelIndexToEntry(const QModelIndex& index)
     return currentEntry;
 }
 
+UconfigKeyObject* UconfigEditor::modelIndexToKey(const QModelIndex& index)
+{
+    // Reverse mapping from a QStandardItemModel index to an Uconfig key
+    UconfigKeyObject* currentKey = NULL;
+
+    if (!currentEntry)
+        return currentKey;
+
+    UconfigKeyObject* keyList = currentEntry->keys();
+    if (keyList)
+    {
+        currentKey = new UconfigKeyObject;
+        *currentKey = keyList[index.row()]; // Do a shallow copy
+        delete[] keyList;
+    }
+    return currentKey;
+}
+
 void UconfigEditor::closeEvent(QCloseEvent* event)
 {
     if (!confirmSaving())
         event->ignore();
-}
-
-void UconfigEditor::onEntryListItemClicked(const QModelIndex& index)
-{
-    if (!index.isValid())
-        return;
-
-    UconfigEntryObject* entry = modelIndexToEntry(index);
-    if (entry)
-        reloadKeyList(*entry);
-    else
-        resetKeyList();
-
-    if (currentEntry)
-        delete currentEntry;
-    currentEntry = entry;
 }
 
 void UconfigEditor::on_actionNew_triggered()
@@ -437,11 +578,6 @@ void UconfigEditor::on_actionPaste_triggered()
 
 }
 
-void UconfigEditor::on_actionDuplicate_triggered()
-{
-
-}
-
 void UconfigEditor::on_actionAbout_triggered()
 {
     QMessageBox::about(this, "Uconfig Editor",
@@ -449,4 +585,147 @@ void UconfigEditor::on_actionAbout_triggered()
                        "with Uconfig library. \n"
                        "No guarantee for data safety. "
                        "Back up your data before using!");
+}
+
+void
+UconfigEditor::on_treeSubentry_customContextMenuRequested(const QPoint &pos)
+{
+    if (pos.isNull())
+        return;
+
+    if (menuTreeSubentry == NULL)
+    {
+        menuTreeSubentry = new QMenu(ui->treeSubentry);
+
+        QAction* action;
+
+        action = new QAction("&Add subentry", this);
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(onActionAddSubentry_triggered()));
+        menuTreeSubentry->addAction(action);
+
+        menuTreeSubentry->addSeparator();
+
+        action = new QAction("&Duplicate", this);
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(onActionDuplicateEntry_triggered()));
+        menuTreeSubentry->addAction(action);
+
+        action = new QAction("Dele&te", this);
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(onActionDeleteEntry_triggered()));
+        menuTreeSubentry->addAction(action);
+    }
+    menuTreeSubentry->exec(QCursor::pos());
+}
+
+void
+UconfigEditor::on_listKey_customContextMenuRequested(const QPoint &pos)
+{
+    if (pos.isNull())
+        return;
+
+    if (menuListKey == NULL)
+    {
+        menuListKey = new QMenu(ui->listKey);
+
+        QAction* action;
+
+        action = new QAction("&Add key", this);
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(onActionAddKey_triggered()));
+        menuListKey->addAction(action);
+
+        action = new QAction("&Duplicate", this);
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(onActionDuplicateKey_triggered()));
+        menuListKey->addAction(action);
+
+        menuListKey->addSeparator();
+
+        action = new QAction("Dele&te", this);
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(onActionDeleteKey_triggered()));
+        menuListKey->addAction(action);
+    }
+
+    menuListKey->exec(QCursor::pos());
+}
+
+void UconfigEditor::onEntryListItemClicked(const QModelIndex& index)
+{
+    if (!index.isValid())
+        return;
+
+    UconfigEntryObject* entry = modelIndexToEntry(index);
+    if (entry)
+        reloadKeyList(*entry);
+    else
+        resetKeyList();
+
+    if (currentEntry)
+        delete currentEntry;
+    currentEntry = entry;
+}
+
+void UconfigEditor::onActionAddSubentry_triggered()
+{
+    if (ui->treeSubentry->currentIndex().isValid())
+        addSubentry(ui->treeSubentry->currentIndex());
+}
+
+void UconfigEditor::onActionDuplicateEntry_triggered()
+{
+    QModelIndex index = ui->treeSubentry->currentIndex();
+    if (!index.isValid())
+        return;
+    if (index == entryListRoot->index())
+    {
+        QMessageBox::warning(this, "Illegal operation",
+                             "Root entry cannot be duplicated.");
+        return;
+    }
+    addSubentry(index.parent(), modelIndexToEntry(index));
+}
+
+void UconfigEditor::onActionDeleteEntry_triggered()
+{
+    QModelIndex index = ui->treeSubentry->currentIndex();
+    if (!index.isValid())
+        return;
+    if (index == entryListRoot->index())
+    {
+        QMessageBox::warning(this, "Illegal operation",
+                             "Root entry cannot be deleted.");
+        return;
+    }
+    removeEntry(index);
+}
+
+void UconfigEditor::onActionAddKey_triggered()
+{
+    QModelIndex index = ui->treeSubentry->currentIndex();
+    if (!index.isValid())
+        return;
+    if (index == entryListRoot->index())
+    {
+        QMessageBox::warning(this, "Illegal operation",
+                             "Root entry cannot possess keys.");
+        return;
+    }
+    addKey(index);
+}
+
+void UconfigEditor::onActionDuplicateKey_triggered()
+{
+    if (ui->treeSubentry->currentIndex().isValid() &&
+        ui->listKey->currentIndex().isValid())
+        addKey(ui->treeSubentry->currentIndex(),
+               modelIndexToKey(ui->listKey->currentIndex()));
+}
+
+void UconfigEditor::onActionDeleteKey_triggered()
+{
+    if (ui->listKey->currentIndex().isValid())
+        removeKey(ui->listKey->currentIndex());
 }

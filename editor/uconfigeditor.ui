@@ -16,10 +16,17 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
-     <widget class="QTreeView" name="treeSubentry"/>
+     <widget class="QTreeView" name="treeSubentry">
+      <property name="contextMenuPolicy">
+       <enum>Qt::CustomContextMenu</enum>
+      </property>
+     </widget>
     </item>
     <item>
      <widget class="QTableView" name="listKey">
+      <property name="contextMenuPolicy">
+       <enum>Qt::CustomContextMenu</enum>
+      </property>
       <property name="showGrid">
        <bool>false</bool>
       </property>
@@ -64,8 +71,6 @@
     <addaction name="actionCopy"/>
     <addaction name="actionCut"/>
     <addaction name="actionPaste"/>
-    <addaction name="separator"/>
-    <addaction name="actionDuplicate"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
