@@ -563,25 +563,25 @@ bool UconfigEntryObject::deleteSubentry(const char* entryName,
 {
     UconfigEntry& data = refData ? *refData : propData;
     UconfigEntry* entry = Uconfig_searchEntryByName(entryName, &data, nameSize);
-    UconfigEntry* parent = entry->parentEntry;
-    if (!entry || entry == &data)
+    if (!entry)
         return false;
     deleteEntry(entry);
 
     // Create a new list for the subentries
-    UconfigEntry** newEntryList = new UconfigEntry*[parent->subentryCount - 1];
+    int entryCount = entry->subentryCount;
+    UconfigEntry** newEntryList = new UconfigEntry*[entryCount - 1];
     int i, j = 0;
-    for (i=0; i<parent->subentryCount; i++)
+    for (i=0; i<entryCount; i++)
     {
-        if (parent->subentries[i] != entry)
-            newEntryList[j++] = parent->subentries[i];
+        if (entry->subentries[i] != entry)
+            newEntryList[j++] = entry->subentries[i];
     }
 
     // Update the list for the parent
-    if (parent->subentries)
-        delete parent->subentries;
-    parent->subentries = newEntryList;
-    parent->subentryCount--;
+    if (entry->subentries)
+        delete entry->subentries;
+    entry->subentries = newEntryList;
+    entry->subentryCount--;
 
     return true;
 }

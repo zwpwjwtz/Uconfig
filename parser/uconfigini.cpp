@@ -232,7 +232,7 @@ bool UconfigINIPrivate::fwriteEntry(FILE* file,
             fwrite("[", sizeof(char), 1, file);
             fwrite(entryList[i].name(),
                    sizeof(char),
-                   entryList[i].nameSize(),
+                   strlen(entryList[i].name()),
                    file);
             fwrite("]", sizeof(char), 1, file);
             fwrite(lineDelimiter, sizeof(char), lDLength, file);
