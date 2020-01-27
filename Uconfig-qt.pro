@@ -40,7 +40,8 @@ SOURCES += main.cpp \
     parser/uconfigio.cpp \
     test/testbasic.cpp \
     test/testparser.cpp \
-    test/testconversion.cpp
+    test/testconversion.cpp \
+    editor/uconfigeditor.cpp
 
 HEADERS  += \
     parser/uconfigentry.h \
@@ -57,8 +58,17 @@ HEADERS  += \
     parser/uconfigjson.h \
     parser/uconfigjson_p.h \
     parser/uconfigxml.h \
-    parser/uconfigxml_p.h
+    parser/uconfigxml_p.h \
+    editor/uconfigeditor.h
 
 target.path = $${PREFIX}/bin/
 
 INSTALLS += target
+
+FORMS += \
+    editor/uconfigeditor.ui
+
+DISTFILES +=
+
+RESOURCES += \
+    editor/icons.qrc

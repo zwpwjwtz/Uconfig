@@ -18,6 +18,8 @@ public:
     UconfigKeyObject(const UconfigKeyObject& key);
     ~UconfigKeyObject();
 
+    UconfigKeyObject& operator=(const UconfigKeyObject& key);
+
     void reset();
 
     const char* name() const;
@@ -54,6 +56,8 @@ public:
                        bool subentries = false);
     UconfigEntryObject(const UconfigEntryObject& entry);
     ~UconfigEntryObject();
+
+    UconfigEntryObject& operator=(const UconfigEntryObject& entry);
 
     void reset();
 

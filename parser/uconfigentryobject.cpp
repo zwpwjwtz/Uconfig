@@ -23,13 +23,13 @@ UconfigKeyObject::UconfigKeyObject(UconfigKey* key, bool copy)
     {
         if (copy)
         {
+            setReference(NULL);
             copyKey(&propData, key);
-            refData = NULL;
         }
         else
         {
             initialize();
-            refData = key;
+            setReference(key);
         }
     }
     else
@@ -38,16 +38,25 @@ UconfigKeyObject::UconfigKeyObject(UconfigKey* key, bool copy)
 
 UconfigKeyObject::UconfigKeyObject(const UconfigKeyObject& key)
 {
+    setReference(NULL);
     if (key.refData)
         copyKey(&propData, key.refData);
     else
         copyKey(&propData, &key.propData);
-    refData = NULL;
 }
 
 UconfigKeyObject::~UconfigKeyObject()
 {
     reset();
+}
+
+UconfigKeyObject& UconfigKeyObject::operator=(const UconfigKeyObject& key)
+{
+    if (key.refData)
+        setReference(key.refData);
+    else
+        setReference(const_cast<UconfigKey*>(&key.propData));
+    return *this;
 }
 
 void UconfigKeyObject::reset()
@@ -212,13 +221,13 @@ UconfigEntryObject::UconfigEntryObject(UconfigEntry* entry,
     {
         if (copy)
         {
+            setReference(NULL);
             copyEntry(&propData, entry, subentries);
-            refData = NULL;
         }
         else
         {
             initialize();
-            refData = entry;
+            setReference(entry);
         }
     }
     else
@@ -227,16 +236,26 @@ UconfigEntryObject::UconfigEntryObject(UconfigEntry* entry,
 
 UconfigEntryObject::UconfigEntryObject(const UconfigEntryObject& entry)
 {
+    setReference(NULL);
     if (entry.refData)
         copyEntry(&propData, entry.refData);
     else
         copyEntry(&propData, &entry.propData);
-    refData = NULL;
 }
 
 UconfigEntryObject::~UconfigEntryObject()
 {
     reset();
+}
+
+UconfigEntryObject&
+UconfigEntryObject::operator=(const UconfigEntryObject& entry)
+{
+    if (entry.refData)
+        setReference(entry.refData);
+    else
+        setReference(const_cast<UconfigEntry*>(&entry.propData));
+    return *this;
 }
 
 void UconfigEntryObject::reset()
