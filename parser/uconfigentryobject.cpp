@@ -558,30 +558,30 @@ bool UconfigEntryObject::addSubentry(const UconfigEntryObject* newEntry)
     return true;
 }
 
-bool UconfigEntryObject::deleteSubentry(const char* entryName,
-                                        int nameSize)
+bool UconfigEntryObject::deleteSubentry(const char* entryName, int nameSize)
 {
-    UconfigEntry& data = refData ? *refData : propData;
-    UconfigEntry* entry = Uconfig_searchEntryByName(entryName, &data, nameSize);
-    if (!entry)
+    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry* subentry =
+                    Uconfig_searchEntryByName(entryName, &entry, nameSize);
+    if (!subentry)
         return false;
-    deleteEntry(entry);
+    deleteEntry(subentry);
 
     // Create a new list for the subentries
-    int entryCount = entry->subentryCount;
+    int entryCount = entry.subentryCount;
     UconfigEntry** newEntryList = new UconfigEntry*[entryCount - 1];
     int i, j = 0;
     for (i=0; i<entryCount; i++)
     {
-        if (entry->subentries[i] != entry)
-            newEntryList[j++] = entry->subentries[i];
+        if (entry.subentries[i] != subentry)
+            newEntryList[j++] = entry.subentries[i];
     }
 
     // Update the list for the parent
-    if (entry->subentries)
-        delete entry->subentries;
-    entry->subentries = newEntryList;
-    entry->subentryCount--;
+    if (entry.subentries)
+        delete entry.subentries;
+    entry.subentries = newEntryList;
+    entry.subentryCount--;
 
     return true;
 }
@@ -590,9 +590,10 @@ bool UconfigEntryObject::modifySubentry(const UconfigEntryObject* newEntry,
                                         const char* entryName,
                                         int nameSize)
 {
-    UconfigEntry& data = refData ? *refData : propData;
-    UconfigEntry* entry = Uconfig_searchEntryByName(entryName, &data, nameSize);
-    if (!entry)
+    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry* subentry =
+                    Uconfig_searchEntryByName(entryName, &entry, nameSize);
+    if (!subentry)
         return false;
 
     // Duplicate the given entry
@@ -603,13 +604,13 @@ bool UconfigEntryObject::modifySubentry(const UconfigEntryObject* newEntry,
         return false;
 
     // Update the subentry list of parent
-    for (int i=0; i<entry->subentryCount; i++)
+    for (int i=0; i<entry.subentryCount; i++)
     {
-        if (entry->subentries[i] == entry)
+        if (entry.subentries[i] == subentry)
         {
-            entry->subentries[i] = tempEntry;
-            tempEntry->parentEntry = entry;
-            deleteEntry(entry);
+            entry.subentries[i] = tempEntry;
+            tempEntry->parentEntry = &entry;
+            deleteEntry(subentry);
             return true;
         }
     }
