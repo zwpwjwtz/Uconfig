@@ -34,22 +34,26 @@ public:
 
     void reset();
 
+    // File I/O
     bool confirmSaving();
     bool loadFile();
     bool saveFile(bool forceSavingAs = false);
 
+    // UI behavior
     void updateWindowTitle();
 
+    // Entry list operations
     void reloadEntryList();
     bool addSubentry(const QModelIndex& parentIndex,
                      const UconfigEntryObject* newEntry = NULL);
     bool removeEntry(const QModelIndex& index);
 
+    // Key list operations
     void reloadKeyList(UconfigEntryObject& entry);
-    bool addKey(const QModelIndex& parentIndex,
-                const UconfigKeyObject* newKey = NULL);
+    bool addKey(const UconfigKeyObject* newKey = NULL);
     bool removeKey(const QModelIndex& index);
 
+    // Helper functions
     static QString keyTypeToString(UconfigValueType valueType);
     static QString keyValueToString(const UconfigKeyObject& key);
 

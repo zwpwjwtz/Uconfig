@@ -22,17 +22,21 @@ public:
 
     void reset();
 
+    // Key name
     const char* name() const;
     int nameSize() const;
     void setName(const char* name, int size = 0);
 
+    // Key type
     UconfigValueType type() const;
     void setType(UconfigValueType type);
 
+    // Key value
     const char* value() const;
     int valueSize() const;
     void setValue(const char* value, int size);
 
+    // Helper functions
     static bool copyKey(UconfigKey* dest, const UconfigKey* src);
     static void deleteKey(UconfigKey* key);
 
@@ -61,15 +65,20 @@ public:
 
     void reset();
 
+    // Entry name
     const char* name() const;
     int nameSize() const;
     void setName(const char* name, int size = 0);
 
+    // Entry type
     int type() const;
     void setType(int type);
 
+    // Entry's keys
     int keyCount() const;
     UconfigKeyObject* keys();
+
+    bool existKey(const char* keyName, int nameSize = 0) const;
     UconfigKeyObject searchKey(const char* keyName, int nameSize = 0);
 
     bool addKey(const UconfigKeyObject* newKey);
@@ -78,8 +87,11 @@ public:
                    const char* keyName,
                    int nameSize = 0);
 
+    // Subentries
     int subentryCount() const;
     UconfigEntryObject* subentries();
+
+    bool existSubentry(const char* entryName, int nameSize = 0) const;
     UconfigEntryObject searchSubentry(const char* entryName = NULL,
                                       const char* parentName = NULL,
                                       bool recursive = false,
@@ -92,6 +104,10 @@ public:
                         const char* entryName,
                         int nameSize);
 
+    // Entry's parent
+    UconfigEntryObject parentEntry();
+
+    // Helper functions
     static bool copyEntry(UconfigEntry* dest,
                            const UconfigEntry* src,
                            bool recursive = false);

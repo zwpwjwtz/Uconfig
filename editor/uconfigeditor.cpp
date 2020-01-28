@@ -242,25 +242,19 @@ bool UconfigEditor::removeEntry(const QModelIndex& index)
     if (entry)
     {
         // First assign the entry a temporary but unique name
-        UconfigEntryObject* parent = index.parent() == entryListRoot->index() ?
-                                     &currentFile.rootEntry :
-                                     modelIndexToEntry(index.parent());
+        UconfigEntryObject parent = entry->parentEntry();
         QByteArray tempName;
         while (true)
         {
             tempName = UCONFIG_EDITOR_ENTRY_NAME_PREFIX;
             tempName.append(QByteArray::number(qrand()));
-            if (!parent->searchSubentry(tempName.constData(),
-                                        NULL,
-                                        false,
-                                        tempName.size())
-                                       .name())
+            if (!parent.existSubentry(tempName.constData(), tempName.size()))
                 break;
         }
         entry->setName(tempName.constData(), tempName.size());
 
         // Then delete the entry by its name
-        parent->deleteSubentry(tempName.constData(), tempName.size());
+        parent.deleteSubentry(tempName.constData(), tempName.size());
     }
     modelEntryList.removeRow(index.row(), index.parent());
 
@@ -281,25 +275,21 @@ void UconfigEditor::reloadKeyList(UconfigEntryObject& entry)
     }
 }
 
-bool UconfigEditor::addKey(const QModelIndex& parentIndex,
-                           const UconfigKeyObject* newKey)
+bool UconfigEditor::addKey(const UconfigKeyObject* newKey)
 {
-    UconfigEntryObject* parent = parentIndex.isValid() ?
-                                 modelIndexToEntry(parentIndex) :
-                                 currentEntry;
-    if (!parent)
+    if (!currentEntry)
         return false;
 
     if (newKey)
     {
-        parent->addKey(newKey);
+        currentEntry->addKey(newKey);
         loadKey(*newKey);
     }
     else
     {
         UconfigKeyObject tempKey;
         tempKey.setName(UCONFIG_EDITOR_LISTVIEW_TEXT_NEW);
-        parent->addKey(&tempKey);
+        currentEntry->addKey(&tempKey);
         loadKey(tempKey);
     }
 
@@ -321,9 +311,7 @@ bool UconfigEditor::removeKey(const QModelIndex& index)
         {
             tempName = UCONFIG_EDITOR_KEY_NAME_PREFIX;
             tempName.append(QByteArray::number(qrand()));
-            if (!currentEntry->searchKey(tempName.constData(),
-                                         tempName.size())
-                                        .name())
+            if (!currentEntry->existKey(tempName.constData(), tempName.size()))
                 break;
         }
         key->setName(tempName.constData(), tempName.size());
@@ -713,15 +701,13 @@ void UconfigEditor::onActionAddKey_triggered()
                              "Root entry cannot possess keys.");
         return;
     }
-    addKey(index);
+    addKey();
 }
 
 void UconfigEditor::onActionDuplicateKey_triggered()
 {
-    if (ui->treeSubentry->currentIndex().isValid() &&
-        ui->listKey->currentIndex().isValid())
-        addKey(ui->treeSubentry->currentIndex(),
-               modelIndexToKey(ui->listKey->currentIndex()));
+    if (ui->listKey->currentIndex().isValid())
+        addKey(modelIndexToKey(ui->listKey->currentIndex()));
 }
 
 void UconfigEditor::onActionDeleteKey_triggered()

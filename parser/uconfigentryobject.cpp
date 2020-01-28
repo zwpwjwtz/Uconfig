@@ -66,7 +66,7 @@ void UconfigKeyObject::reset()
     if (propData.name)
         delete propData.name;
     propData.name = NULL;
-    propData.nameSize = NULL;
+    propData.nameSize = 0;
 
     if (propData.value)
         delete propData.value;
@@ -356,6 +356,25 @@ UconfigKeyObject* UconfigEntryObject::keys()
     return keyList;
 }
 
+bool UconfigEntryObject::existKey(const char* keyName, int nameSize) const
+{
+    if (!keyName)
+        return false;
+    if (nameSize <= 0)
+        nameSize = strlen(keyName) + 1;
+
+    const UconfigEntry& entry = refData ? *refData : propData;
+
+    for (int i=0; i<entry.keyCount; i++)
+    {
+        if (entry.keys[i] &&
+            entry.keys[i]->name &&
+            memcmp(entry.keys[i]->name, keyName, nameSize) == 0)
+            return true;
+    }
+    return false;
+}
+
 // Find a key with given name under a given entry
 // Return NULL if no such key can be found
 UconfigKeyObject UconfigEntryObject::searchKey(const char* keyName,
@@ -423,7 +442,7 @@ bool UconfigEntryObject::deleteKey(const char* keyName, int nameSize)
     int i, j = 0;
     for (i=0; i<keyCount; i++)
     {
-        if (entry.keys[i] == key)
+        if (entry.keys[i] != key)
             newKeyList[j++] = entry.keys[i];
     }
 
@@ -484,6 +503,25 @@ UconfigEntryObject* UconfigEntryObject::subentries()
     for (int i=0; i<entry.subentryCount; i++)
         entryList[i].setReference(entry.subentries[i]);
     return entryList;
+}
+
+bool UconfigEntryObject::existSubentry(const char* entryName,
+                                       int nameSize) const
+{
+    const UconfigEntry* entry = refData ? refData : &propData;
+
+    if (!entry)
+        return false;
+    if (nameSize <= 0)
+        nameSize = strlen(entryName) + 1;
+
+    if (Uconfig_searchEntryByName(entryName,
+                                  const_cast<UconfigEntry*>(entry),
+                                  nameSize,
+                                  false))
+        return true;
+    else
+        return false;
 }
 
 // Find an entry with given name under a given parent recursively
@@ -617,6 +655,12 @@ bool UconfigEntryObject::modifySubentry(const UconfigEntryObject* newEntry,
 
     // We shall never reach here
     return false;
+}
+
+UconfigEntryObject UconfigEntryObject::parentEntry()
+{
+    UconfigEntry* entry = refData ? refData : &propData;
+    return UconfigEntryObject(entry, false);
 }
 
 // Deep copy of an entry and its subentries
