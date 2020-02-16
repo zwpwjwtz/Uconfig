@@ -325,27 +325,29 @@ bool UconfigEditor::removeKey(const QModelIndex& index)
     return true;
 }
 
-QString UconfigEditor::keyTypeToString(UconfigValueType valueType)
+QString UconfigEditor::keyTypeToString(int valueType)
 {
+    typedef UconfigIO::ValueType ValueType;
+
     QString text;
-    switch (valueType)
+    switch (ValueType(valueType))
     {
-        case Chars:
+        case ValueType::Chars:
             text = "Chars";
             break;
-        case Integer:
+        case ValueType::Integer:
             text = "Integer";
             break;
-        case Float:
+        case ValueType::Float:
             text = "Float";
             break;
-        case Double:
+        case ValueType::Double:
             text = "Double";
             break;
-        case Bool:
+        case ValueType::Bool:
             text = "Boolean";
             break;
-        case Raw:
+        case ValueType::Raw:
         default:
             text = "Raw";
     }
@@ -355,10 +357,12 @@ QString UconfigEditor::keyTypeToString(UconfigValueType valueType)
 
 QString UconfigEditor::keyValueToString(const UconfigKeyObject& key)
 {
+    typedef UconfigIO::ValueType ValueType;
+
     QString text;
-    switch (UconfigValueType(key.type()))
+    switch (ValueType(key.type()))
     {
-        case Chars:
+        case ValueType::Chars:
             if (key.valueSize() > UCONFIG_EDITOR_LISTVIEW_TEXT_MAXLEN)
             {
                 text = QByteArray(key.value(),
@@ -368,21 +372,21 @@ QString UconfigEditor::keyValueToString(const UconfigKeyObject& key)
             else
                 text = QByteArray(key.value(), key.valueSize());
             break;
-        case Integer:
+        case ValueType::Integer:
             text = QString::number(*((int*)(key.value())));
             break;
-        case Float:
+        case ValueType::Float:
             text = QString::number(*((float*)(key.value())));
             break;
-        case Double:
+        case ValueType::Double:
             text = QString::number(*((double*)(key.value())));
             break;
-        case Bool:
+        case ValueType::Bool:
             text = *((bool*)(key.value())) ?
                    UCONFIG_EDITOR_LISTVIEW_TEXT_BOOL_T :
                    UCONFIG_EDITOR_LISTVIEW_TEXT_BOOL_F;
             break;
-        case Raw:
+        case ValueType::Raw:
         default:
             text = UCONFIG_EDITOR_LISTVIEW_TEXT_RAW;
     }

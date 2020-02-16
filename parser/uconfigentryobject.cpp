@@ -113,16 +113,16 @@ void UconfigKeyObject::setName(const char* name, int size)
         data.name = NULL;
 }
 
-UconfigValueType UconfigKeyObject::type() const
+int UconfigKeyObject::type() const
 {
     const UconfigKey& data = refData ? *refData : propData;
-    return UconfigValueType(data.valueType);
+    return data.valueType;
 }
 
-void UconfigKeyObject::setType(UconfigValueType type)
+void UconfigKeyObject::setType(int type)
 {
     UconfigKey& data = refData ? *refData : propData;
-    data.valueType = int(type);
+    data.valueType = type;
 }
 
 const char* UconfigKeyObject::value() const

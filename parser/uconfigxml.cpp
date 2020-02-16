@@ -56,12 +56,12 @@ bool UconfigXML::readUconfig(const char* filename, UconfigFile* config)
         /* Basic information */
         tempKey.reset();
         tempKey.setName(UCONFIG_METADATA_KEY_FILENAME);
-        tempKey.setType(UconfigValueType::Chars);
+        tempKey.setType(ValueType::Chars);
         tempKey.setValue(filename, strlen(filename) + 1);
         config->metadata.addKey(&tempKey);
         tempKey.reset();
         tempKey.setName(UCONFIG_METADATA_KEY_FILETYPE);
-        tempKey.setType(UconfigValueType::Chars);
+        tempKey.setType(ValueType::Chars);
         tempKey.setValue(UCONFIG_METADATA_VALUE_JSON,
                          strlen(UCONFIG_METADATA_VALUE_JSON) + 1);
         config->metadata.addKey(&tempKey);
@@ -109,16 +109,16 @@ bool UconfigXMLKey::parseValue(const char* expression, int length)
 
     char* pTail;
 
-    UconfigValueType valueType = guessValueType(expression, length);
+    ValueType valueType = guessValueType(expression, length);
     switch (valueType)
     {
-        case UconfigValueType::Chars:
+        case ValueType::Chars:
         {
             // Ignore wrapping quotes when storing
             setValue(&expression[1], length - sizeof(char) * 2);
             break;
         }
-        case UconfigValueType::Integer:
+        case ValueType::Integer:
         {
             // Store the number as an "int"
             int tempInt = int(strtol(expression, &pTail, 0));
@@ -126,8 +126,8 @@ bool UconfigXMLKey::parseValue(const char* expression, int length)
                 setValue((char*)(&tempInt), sizeof(int));
             break;
         }
-        case UconfigValueType::Float:
-        case UconfigValueType::Double:
+        case ValueType::Float:
+        case ValueType::Double:
         {
             // Store the number as a "double"
             double tempDouble = strtod(expression, &pTail);
@@ -148,23 +148,23 @@ int UconfigXMLKey::fwriteValue(FILE* file)
     char* buffer = NULL;
 
     int length = 0;
-    switch (UconfigValueType(type()))
+    switch (ValueType(type()))
     {
-        case UconfigValueType::Chars:
+        case ValueType::Chars:
             // Wrap string with quotes
             fputc(UCONFIG_IO_XML_CHAR_STRING, file);
             fwrite(value(), valueSize(), sizeof(char), file);
             fputc(UCONFIG_IO_XML_CHAR_STRING, file);
             break;
-        case UconfigValueType::Integer:
+        case ValueType::Integer:
             length = asprintf(&buffer, "%d", *(int*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
-        case UconfigValueType::Float:
+        case ValueType::Float:
             length = asprintf(&buffer, "%f", *(float*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
-        case UconfigValueType::Double:
+        case ValueType::Double:
             length = asprintf(&buffer, "%f", *(double*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
@@ -275,7 +275,7 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
             if (buffer.size() > 0)
             {
                 tempKey.setName(NULL);
-                tempKey.setType(UconfigValueType::Raw);
+                tempKey.setType(ValueType::Raw);
                 tempKey.setValue(buffer.data(), buffer.size());
                 tempSubentry.reset();
                 tempSubentry.setType(UconfigXML::TextEntry);
@@ -633,7 +633,7 @@ int UconfigXMLPrivate::parseTagAttribute(const char* expression,
     // Extract attribute's value
     if (pos2 > pos)
     {
-        key.setType(UconfigValueType::Raw);
+        key.setType(ValueType::Raw);
         key.setValue(&expression[pos], pos2 - pos);
     }
 
@@ -671,7 +671,7 @@ int UconfigXMLPrivate::parseComment(FILE* file,
     {
         // Extract the comment
         UconfigKeyObject key;
-        key.setType(UconfigValueType::Raw);
+        key.setType(ValueType::Raw);
         key.setValue(buffer, contentLength);
         entry.addKey(&key);
         readLength += contentLength;
@@ -726,7 +726,7 @@ int UconfigXMLPrivate::parseCDATA(FILE* file,
     if (contentLength > 0)
     {
         UconfigKeyObject key;
-        key.setType(UconfigValueType::Raw);
+        key.setType(ValueType::Raw);
         key.setValue(buffer, contentLength);
         entry.addKey(&key);
         readLength += contentLength;

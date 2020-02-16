@@ -28,8 +28,8 @@ public:
     void setName(const char* name, int size = 0);
 
     // Key type
-    UconfigValueType type() const;
-    void setType(UconfigValueType type);
+    int type() const;
+    void setType(int type);
 
     // Key value
     const char* value() const;

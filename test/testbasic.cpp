@@ -52,6 +52,8 @@ bool testEntry()
 
 bool testGuessValueType()
 {
+    typedef UconfigIO::ValueType ValueType;
+
     const char* sampleChars = "\"339f,jF)9j4hhh.falseG;;1\"";
     const char* sampleInteger = "26978274";
     const char* sampleDouble = "269.78274";
@@ -62,19 +64,19 @@ bool testGuessValueType()
 
     bool success = true;
     success &= UconfigIO::guessValueType(sampleChars, strlen(sampleChars))
-                    == UconfigValueType::Chars;
+                    == ValueType::Chars;
     success &= UconfigIO::guessValueType(sampleInteger, strlen(sampleInteger))
-                    == UconfigValueType::Integer;
+                    == ValueType::Integer;
     success &= UconfigIO::guessValueType(sampleDouble, strlen(sampleDouble))
-                    == UconfigValueType::Double;
+                    == ValueType::Double;
     success &= UconfigIO::guessValueType(sampleBool, strlen(sampleBool))
-                    == UconfigValueType::Bool;
+                    == ValueType::Bool;
     success &= UconfigIO::guessValueType(sampleRaw1, strlen(sampleRaw1))
-                    == UconfigValueType::Raw;
+                    == ValueType::Raw;
     success &= UconfigIO::guessValueType(sampleRaw2, strlen(sampleRaw2))
-                    == UconfigValueType::Raw;
+                    == ValueType::Raw;
     success &= UconfigIO::guessValueType(sampleRaw3, strlen(sampleRaw3))
-                    == UconfigValueType::Raw;
+                    == ValueType::Raw;
 
     return success;
 }

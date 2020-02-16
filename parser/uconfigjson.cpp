@@ -42,12 +42,12 @@ bool UconfigJSON::readUconfig(const char* filename, UconfigFile* config)
         /* Basic information */
         tempKey.reset();
         tempKey.setName(UCONFIG_METADATA_KEY_FILENAME);
-        tempKey.setType(UconfigValueType::Chars);
+        tempKey.setType(ValueType::Chars);
         tempKey.setValue(filename, strlen(filename) + 1);
         config->metadata.addKey(&tempKey);
         tempKey.reset();
         tempKey.setName(UCONFIG_METADATA_KEY_FILETYPE);
-        tempKey.setType(UconfigValueType::Chars);
+        tempKey.setType(ValueType::Chars);
         tempKey.setValue(UCONFIG_METADATA_VALUE_JSON,
                          strlen(UCONFIG_METADATA_VALUE_JSON) + 1);
         config->metadata.addKey(&tempKey);
@@ -132,10 +132,10 @@ bool UconfigJSONKey::parseValue(const char* expression, int length)
 
     char* pTail;
 
-    UconfigValueType valueType = guessValueType(expression, length);
+    ValueType valueType = guessValueType(expression, length);
     switch (valueType)
     {
-        case UconfigValueType::Bool:
+        case ValueType::Bool:
         {
             bool tempBool = strcasestr(expression,
                                        UCONFIG_IO_JSON_EXPRESSION_BOOL_TRUE)
@@ -143,13 +143,13 @@ bool UconfigJSONKey::parseValue(const char* expression, int length)
             setValue((char*)(&tempBool), sizeof(bool));
             break;
         }
-        case UconfigValueType::Chars:
+        case ValueType::Chars:
         {
             // Ignore wrapping quotes when storing
             setValue(&expression[1], length - sizeof(char) * 2);
             break;
         }
-        case UconfigValueType::Integer:
+        case ValueType::Integer:
         {
             // Store the number as an "int"
             int tempInt = int(strtol(expression, &pTail, 0));
@@ -157,8 +157,8 @@ bool UconfigJSONKey::parseValue(const char* expression, int length)
                 setValue((char*)(&tempInt), sizeof(int));
             break;
         }
-        case UconfigValueType::Float:
-        case UconfigValueType::Double:
+        case ValueType::Float:
+        case ValueType::Double:
         {
             // Store the number as a "double"
             double tempDouble = strtod(expression, &pTail);
@@ -181,6 +181,8 @@ int UconfigJSONKey::fwriteName(FILE *file)
     fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
     fwrite(data.name, sizeof(char), data.nameSize, file);
     fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
+
+    return data.nameSize + 2;
 }
 
 int UconfigJSONKey::fwriteValue(FILE* file)
@@ -188,31 +190,33 @@ int UconfigJSONKey::fwriteValue(FILE* file)
     char* buffer = NULL;
 
     int length = 0;
-    switch (UconfigValueType(type()))
+    switch (ValueType(type()))
     {
-        case UconfigValueType::Bool:
+        case ValueType::Bool:
         {
             const char* boolExp = *(bool*)(value()) ?
                              UCONFIG_IO_JSON_EXPRESSION_BOOL_TRUE :
                              UCONFIG_IO_JSON_EXPRESSION_BOOL_FALSE;
-            fwrite(boolExp, strlen(boolExp), sizeof(char), file);
+            length = strlen(boolExp);
+            fwrite(boolExp, length, sizeof(char), file);
             break;
         }
-        case UconfigValueType::Integer:
+        case ValueType::Integer:
             length = asprintf(&buffer, "%d", *(int*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
-        case UconfigValueType::Float:
+        case ValueType::Float:
             length = asprintf(&buffer, "%f", *(float*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
-        case UconfigValueType::Double:
+        case ValueType::Double:
             length = asprintf(&buffer, "%f", *(double*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
-        case UconfigValueType::Chars:
+        case ValueType::Chars:
         default:
             // Wrap string with quotes
+            length = valueSize() + 2;
             fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
             fwrite(value(), valueSize(), sizeof(char), file);
             fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
@@ -246,6 +250,8 @@ int UconfigJSONEntry::fwriteName(FILE *file)
     fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
     fwrite(data.name, sizeof(char), data.nameSize, file);
     fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
+
+    return data.nameSize + 2;
 }
 
 

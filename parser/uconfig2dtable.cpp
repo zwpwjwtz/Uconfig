@@ -94,7 +94,7 @@ bool Uconfig2DTable::readUconfig(const char* filename,
         else
         {
             // See the whole "line" as RAW content
-            tempKey.setType(UconfigValueType::Raw);
+            tempKey.setType(ValueType::Raw);
             tempKey.setValue(buffer, readLen);
             tempSubentry.addKey(&tempKey);
             tempSubentry.setType(Uconfig2DTable::Raw);
@@ -120,24 +120,24 @@ bool Uconfig2DTable::readUconfig(const char* filename,
     /* Basic information */
     tempKey.reset();
     tempKey.setName(UCONFIG_METADATA_KEY_FILENAME);
-    tempKey.setType(UconfigValueType::Chars);
+    tempKey.setType(ValueType::Chars);
     tempKey.setValue(filename, strlen(filename) + 1);
     config->metadata.addKey(&tempKey);
     tempKey.reset();
     tempKey.setName(UCONFIG_METADATA_KEY_FILETYPE);
-    tempKey.setType(UconfigValueType::Chars);
+    tempKey.setType(ValueType::Chars);
     tempKey.setValue(UCONFIG_METADATA_VALUE_2DTABLE,
                      strlen(UCONFIG_METADATA_VALUE_2DTABLE) + 1);
     config->metadata.addKey(&tempKey);
     /* Delimiter strings */
     tempKey.reset();
     tempKey.setName(UCONFIG_METADATA_KEY_ROWDELIM);
-    tempKey.setType(UconfigValueType::Chars);
+    tempKey.setType(ValueType::Chars);
     tempKey.setValue(rowDelimiter, strlen(rowDelimiter) + 1);
     config->metadata.addKey(&tempKey);
     tempKey.reset();
     tempKey.setName(UCONFIG_METADATA_KEY_COLDELIM);
-    tempKey.setType(UconfigValueType::Chars);
+    tempKey.setType(ValueType::Chars);
     tempKey.setValue(columnDelimiter, strlen(columnDelimiter) + 1);
     config->metadata.addKey(&tempKey);
 
@@ -211,7 +211,7 @@ int Uconfig2DTable::parseValues(const char* expression,
         if (substrLen > 0 || !skipEmptyValue)
         {
             tempKey.reset();
-            tempKey.setType(UconfigValueType::Raw);
+            tempKey.setType(ValueType::Raw);
             tempKey.setValue(&expression[p1], substrLen);
             entry.setType(Uconfig2DTable::Row);
             entry.addKey(&tempKey);

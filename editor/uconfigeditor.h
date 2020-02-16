@@ -54,7 +54,7 @@ public:
     bool removeKey(const QModelIndex& index);
 
     // Helper functions
-    static QString keyTypeToString(UconfigValueType valueType);
+    static QString keyTypeToString(int valueType);
     static QString keyValueToString(const UconfigKeyObject& key);
 
 private:

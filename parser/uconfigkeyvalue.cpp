@@ -84,7 +84,7 @@ bool UconfigKeyValue::readUconfig(const char* filename, UconfigFile* config)
             // See the whole line as RAW content
             tempKey.reset();
             tempKey.setValue(buffer, readlen);
-            tempKey.setType(UconfigValueType::Raw);
+            tempKey.setType(ValueType::Raw);
             tempSubentry.addKey(&tempKey);
             tempSubentry.setType(UconfigKeyValue::Raw);
         }
@@ -106,12 +106,12 @@ bool UconfigKeyValue::readUconfig(const char* filename, UconfigFile* config)
     /* Basic information */
     tempKey.reset();
     tempKey.setName(UCONFIG_METADATA_KEY_FILENAME);
-    tempKey.setType(UconfigValueType::Chars);
+    tempKey.setType(ValueType::Chars);
     tempKey.setValue(filename, strlen(filename) + 1);
     config->metadata.addKey(&tempKey);
     tempKey.reset();
     tempKey.setName(UCONFIG_METADATA_KEY_FILETYPE);
-    tempKey.setType(UconfigValueType::Chars);
+    tempKey.setType(ValueType::Chars);
     tempKey.setValue(UCONFIG_METADATA_VALUE_INIFILE,
                      strlen(UCONFIG_METADATA_VALUE_INIFILE) + 1);
     config->metadata.addKey(&tempKey);
@@ -163,7 +163,7 @@ int UconfigKeyValuePrivate::parseExpKeyValue(const char* expression,
 
     // Extract value
     int pos2 = pos + strlen(delimiter);
-    key.setType(UconfigValueType::Raw);
+    key.setType(UconfigKeyValue::ValueType::Raw);
     key.setValue(&expression[pos2], expressionLength - pos2);
 
     // Assuming the entire expression is parsed
@@ -193,7 +193,7 @@ int UconfigKeyValuePrivate::parseLineComment(const char* expression,
     // Extract the comment text
     int pos2 = pos + strlen(delimiter);
     key.reset();
-    key.setType(UconfigValueType::Chars);
+    key.setType(UconfigKeyValue::ValueType::Chars);
     key.setValue(&expression[pos2], expressionLength - pos2);
 
     return expressionLength - pos;

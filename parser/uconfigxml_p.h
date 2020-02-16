@@ -3,6 +3,7 @@
 
 #include "uconfigio.h"
 
+typedef UconfigIO::ValueType ValueType;
 
 typedef struct _IO_FILE FILE;
 
@@ -17,7 +18,7 @@ public:
 class UconfigXMLPrivate
 {
 public:
-    static UconfigValueType getValueType(const char* value, int length);
+    static ValueType getValueType(const char* value, int length);
 
     static int freadEntry(FILE* file,
                           UconfigEntryObject& entry,

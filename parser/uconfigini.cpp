@@ -102,7 +102,7 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
                 // See the whole line as RAW content
                 tempKey.reset();
                 tempKey.setValue(buffer, readlen);
-                tempKey.setType(UconfigValueType::Raw);
+                tempKey.setType(ValueType::Raw);
                 tempSubentry.addKey(&tempKey);
                 tempSubentry.setType(UconfigINI::Raw);
             }
@@ -139,12 +139,12 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
     // Add meta-data
     tempKey.reset();
     tempKey.setName(UCONFIG_METADATA_KEY_FILENAME);
-    tempKey.setType(UconfigValueType::Chars);
+    tempKey.setType(ValueType::Chars);
     tempKey.setValue(filename, strlen(filename) + 1);
     config->metadata.addKey(&tempKey);
     tempKey.reset();
     tempKey.setName(UCONFIG_METADATA_KEY_FILETYPE);
-    tempKey.setType(UconfigValueType::Chars);
+    tempKey.setType(ValueType::Chars);
     tempKey.setValue(UCONFIG_METADATA_VALUE_INIFILE,
                      strlen(UCONFIG_METADATA_VALUE_INIFILE) + 1);
     config->metadata.addKey(&tempKey);
