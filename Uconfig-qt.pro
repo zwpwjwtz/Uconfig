@@ -42,7 +42,11 @@ SOURCES += main.cpp \
     test/testparser.cpp \
     test/testconversion.cpp \
     editor/uconfigeditor.cpp \
-    parser/uconfigcsv.cpp
+    parser/uconfigcsv.cpp \
+    editor/qhexedit2/commands.cpp \
+    editor/qhexedit2/qhexedit.cpp \
+    editor/qhexedit2/chunks.cpp \
+    editor/hexeditdialog.cpp
 
 HEADERS  += \
     parser/uconfigentry.h \
@@ -61,16 +65,22 @@ HEADERS  += \
     parser/uconfigxml.h \
     parser/uconfigxml_p.h \
     editor/uconfigeditor.h \
-    parser/uconfigcsv.h
+    parser/uconfigcsv.h \
+    editor/qhexedit2/qhexedit.h \
+    editor/qhexedit2/commands.h \
+    editor/qhexedit2/chunks.h \
+    editor/hexeditdialog.h
 
 target.path = $${PREFIX}/bin/
 
 INSTALLS += target
 
 FORMS += \
-    editor/uconfigeditor.ui
+    editor/uconfigeditor.ui \
+    editor/hexeditdialog.ui
 
-DISTFILES +=
+DISTFILES += \
+    editor/qhexedit2/license.txt
 
 RESOURCES += \
     editor/icons.qrc

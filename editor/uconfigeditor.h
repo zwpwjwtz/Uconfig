@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QStandardItemModel>
 #include "parser/uconfigfile.h"
+#include "hexeditdialog.h"
 
 
 namespace Ui {
@@ -61,6 +62,7 @@ private:
     Ui::UconfigEditor *ui;
     QMenu* menuTreeSubentry;
     QMenu* menuListKey;
+    HexEditDialog* hexEditor;
 
 protected:
     bool modified = false;
@@ -97,6 +99,7 @@ private slots:
     void on_actionAbout_triggered();
     void on_treeSubentry_customContextMenuRequested(const QPoint &pos);
     void on_listKey_customContextMenuRequested(const QPoint &pos);
+    void on_listKey_doubleClicked(const QModelIndex &index);
 
     // Manually connected slots
     void onEntryListItemClicked(const QModelIndex& index);

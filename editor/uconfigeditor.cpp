@@ -18,7 +18,6 @@
 
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_NONAME "(No name)"
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_NEW    "New key"
-#define UCONFIG_EDITOR_LISTVIEW_TEXT_RAW    "(Raw)"
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_BOOL_T "True"
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_BOOL_F "False"
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_MAXLEN 32
@@ -38,6 +37,7 @@ UconfigEditor::UconfigEditor(QWidget* parent) :
 
     menuTreeSubentry = NULL;
     menuListKey = NULL;
+    hexEditor = NULL;
 
     ui->setupUi(this);
     ui->treeSubentry->setModel(&modelEntryList);
@@ -367,16 +367,6 @@ QString UconfigEditor::keyValueToString(const UconfigKeyObject& key)
     QString text;
     switch (ValueType(key.type()))
     {
-        case ValueType::Chars:
-            if (key.valueSize() > UCONFIG_EDITOR_LISTVIEW_TEXT_MAXLEN)
-            {
-                text = QByteArray(key.value(),
-                                  UCONFIG_EDITOR_LISTVIEW_TEXT_MAXLEN);
-                text.append("...");
-            }
-            else
-                text = QByteArray(key.value(), key.valueSize());
-            break;
         case ValueType::Integer:
             text = QString::number(*((int*)(key.value())));
             break;
@@ -391,9 +381,17 @@ QString UconfigEditor::keyValueToString(const UconfigKeyObject& key)
                    UCONFIG_EDITOR_LISTVIEW_TEXT_BOOL_T :
                    UCONFIG_EDITOR_LISTVIEW_TEXT_BOOL_F;
             break;
+        case ValueType::Chars:
         case ValueType::Raw:
         default:
-            text = UCONFIG_EDITOR_LISTVIEW_TEXT_RAW;
+            if (key.valueSize() > UCONFIG_EDITOR_LISTVIEW_TEXT_MAXLEN)
+            {
+                text = QByteArray(key.value(),
+                                  UCONFIG_EDITOR_LISTVIEW_TEXT_MAXLEN);
+                text.append("...");
+            }
+            else
+                text = QByteArray(key.value(), key.valueSize());
     }
 
     return text;
@@ -460,6 +458,7 @@ void UconfigEditor::loadKey(const UconfigKeyObject& key)
     itemList.append(new QStandardItem(keyTypeToString(key.type())));
     itemList.append(new QStandardItem(keyValueToString(key)));
     itemList[0]->setIcon(QIcon(":/icons/file.png"));
+    itemList[2]->setEditable(key.type() != UconfigIO::ValueType::Raw);
 
     modelKeyList.appendRow(itemList);
 }
@@ -647,6 +646,35 @@ UconfigEditor::on_listKey_customContextMenuRequested(const QPoint &pos)
     }
 
     menuListKey->exec(QCursor::pos());
+}
+
+void UconfigEditor::on_listKey_doubleClicked(const QModelIndex &index)
+{
+    if (!index.isValid())
+        return;
+
+    if (index.column() == 2)
+    {
+        // Value content is clicked
+        UconfigKeyObject* key = modelIndexToKey(index);
+        if (key->type() == UconfigIO::ValueType::Raw)
+        {
+            // Launch QHexEdit Dialog
+            if (hexEditor == NULL)
+                hexEditor = new HexEditDialog(this);
+            hexEditor->setData(QByteArray(key->value(), key->valueSize()));
+            hexEditor->exec();
+            if (hexEditor->isModified())
+            {
+                // Update the value
+                QByteArray newData = hexEditor->getData();
+                key->setValue(newData.constData(), newData.size());
+                modelKeyList.itemFromIndex(index)->
+                                setText(keyValueToString(*key));
+            }
+        }
+    }
+
 }
 
 void UconfigEditor::onEntryListItemClicked(const QModelIndex& index)
