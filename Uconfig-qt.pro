@@ -41,7 +41,8 @@ SOURCES += main.cpp \
     test/testbasic.cpp \
     test/testparser.cpp \
     test/testconversion.cpp \
-    editor/uconfigeditor.cpp
+    editor/uconfigeditor.cpp \
+    parser/uconfigcsv.cpp
 
 HEADERS  += \
     parser/uconfigentry.h \
@@ -59,7 +60,8 @@ HEADERS  += \
     parser/uconfigjson_p.h \
     parser/uconfigxml.h \
     parser/uconfigxml_p.h \
-    editor/uconfigeditor.h
+    editor/uconfigeditor.h \
+    parser/uconfigcsv.h
 
 target.path = $${PREFIX}/bin/
 

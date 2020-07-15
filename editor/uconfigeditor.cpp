@@ -5,6 +5,7 @@
 #include "uconfigeditor.h"
 #include "ui_uconfigeditor.h"
 #include "parser/uconfigini.h"
+#include "parser/uconfigcsv.h"
 #include "parser/uconfigjson.h"
 #include "parser/uconfigxml.h"
 
@@ -116,6 +117,8 @@ bool UconfigEditor::loadFile()
     const char* fileNameChars = newFileName.toUtf8().constData();
     if (newFileName.toLower().endsWith(".ini"))
         success = UconfigINI::readUconfig(fileNameChars, &currentFile);
+    else if (newFileName.toLower().endsWith(".csv"))
+        success = UconfigCSV::readUconfig(fileNameChars, &currentFile);
     else if (newFileName.toLower().endsWith(".json"))
         success = UconfigJSON::readUconfig(fileNameChars, &currentFile);
     else if (newFileName.toLower().endsWith(".xml"))
@@ -167,6 +170,8 @@ bool UconfigEditor::saveFile(bool forceSavingAs)
     const char* fileNameChars = newFileName.toUtf8().constData();
     if (newFileName.toLower().endsWith(".ini"))
         success = UconfigINI::writeUconfig(fileNameChars, &currentFile);
+    else if (newFileName.toLower().endsWith(".csv"))
+        success = UconfigCSV::writeUconfig(fileNameChars, &currentFile);
     else if (newFileName.toLower().endsWith(".json"))
         success = UconfigJSON::writeUconfig(fileNameChars, &currentFile);
     else if (newFileName.toLower().endsWith(".xml"))
