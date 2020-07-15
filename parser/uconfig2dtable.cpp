@@ -6,6 +6,8 @@
 
 #define UCONFIG_IO_2DTABLE_DELIMITER_ROW    "\n"
 #define UCONFIG_IO_2DTABLE_DELIMITER_COL    " "
+#define UCONFIG_IO_2DTABLE_TYPE_COMMENT     "Comment"
+#define UCONFIG_IO_2DTABLE_TYPE_TABLE       "Table"
 
 
 static bool Uconfig_fwrite2DTableEntry(FILE* file,
@@ -46,7 +48,8 @@ bool Uconfig2DTable::readUconfig(const char* filename,
                                  const char* rowDelimiter,
                                  const char* columnDelimiter,
                                  bool skipEmptyRow,
-                                 bool skipEmptyColumn)
+                                 bool skipEmptyColumn,
+                                 ValueType defaultValueType)
 {
     if (!config)
         return false;
@@ -79,7 +82,8 @@ bool Uconfig2DTable::readUconfig(const char* filename,
             continue;
 
         parseValues(buffer, tempSubentry, readLen,
-                    columnDelimiter, skipEmptyColumn);
+                    columnDelimiter, skipEmptyColumn,
+                    defaultValueType);
 
         if (tempSubentry.keyCount() > 0)
         {
@@ -89,6 +93,7 @@ bool Uconfig2DTable::readUconfig(const char* filename,
                 config->rootEntry.addSubentry(&tempEntry);
                 tempEntry.reset();
             }
+            tempEntry.setName(UCONFIG_IO_2DTABLE_TYPE_TABLE);
             tempEntry.setType(Uconfig2DTable::NormalEntry);
         }
         else
@@ -103,6 +108,7 @@ bool Uconfig2DTable::readUconfig(const char* filename,
             {
                 // Standalone comment entry or raw content block
                 // (at the beginning of the file)
+                tempEntry.setName(UCONFIG_IO_2DTABLE_TYPE_COMMENT);
                 tempEntry.setType(Uconfig2DTable::CommentEntry);
             }
         }
@@ -181,7 +187,8 @@ int Uconfig2DTable::parseValues(const char* expression,
                                 UconfigEntryObject& entry,
                                 int expressionLength,
                                 const char* delimiter,
-                                bool skipEmptyValue)
+                                bool skipEmptyValue,
+                                ValueType defaultType)
 {
     if (!expression)
         return 0;
@@ -211,8 +218,17 @@ int Uconfig2DTable::parseValues(const char* expression,
         if (substrLen > 0 || !skipEmptyValue)
         {
             tempKey.reset();
-            tempKey.setType(ValueType::Raw);
-            tempKey.setValue(&expression[p1], substrLen);
+            tempKey.setType(defaultType);
+            if (defaultType == ValueType::Chars &&
+                expression[p1] == '"' &&
+                expression[p1 + substrLen - 1] == '"')
+            {
+                // Ignore wrapping quotes when storing
+                tempKey.setValue(&expression[p1 + 1],
+                                 substrLen - sizeof(char) * 2);
+            }
+            else
+                tempKey.setValue(&expression[p1], substrLen);
             entry.setType(Uconfig2DTable::Row);
             entry.addKey(&tempKey);
             keyCount++;
@@ -303,10 +319,14 @@ bool Uconfig_fwrite2DTableSubentry(FILE* file,
                    sizeof(char),
                    keyList[i].valueSize(),
                    file);
-            fwrite(columnDelimiter,
-                   sizeof(char),
-                   delimiterLength,
-                   file);
+            if (i + 1 < subentry.keyCount())
+            {
+                // Only write column delimiters between values
+                fwrite(columnDelimiter,
+                       sizeof(char),
+                       delimiterLength,
+                       file);
+            }
         }
         delete[] keyList;
     }

@@ -1,6 +1,7 @@
 #include <cstdio>
 
 #include "parser/uconfigini.h"
+#include "parser/uconfigcsv.h"
 #include "parser/uconfigjson.h"
 #include "parser/uconfigxml.h"
 
@@ -89,6 +90,27 @@ bool testJSON2INI()
     return UconfigINI::writeUconfig(outputFileName, &config);
 }
 
+
+bool testCSV2JSON()
+{
+    const char* filename = "./SampleConfigs/population.csv";
+    const char* outputFileName = "./SampleConfigs/population.csv.json";
+
+    UconfigFile config;
+    if (!UconfigCSV::readUconfig(filename, &config))
+        return false;
+
+    // Adjust the hierarchy of data to JSON syntax
+    // by wrapping all entries into a pseudo root entry (object)
+    UconfigFile newConfig;
+    config.rootEntry.setType(UconfigJSON::ObjectEntry);
+    newConfig.rootEntry.addSubentry(&config.rootEntry);
+
+    // Export the data to a JSON
+    return UconfigJSON::writeUconfig(outputFileName, &newConfig);
+}
+
+
 bool testJSON2XML()
 {
     const char* filename = "./SampleConfigs/firefox.json";
@@ -153,6 +175,11 @@ void testConversion()
         printf("testJSON2INI() passed.\n");
     else
         printf("testJSON2INI() failed!\n");
+
+    if (testCSV2JSON())
+        printf("testCSV2JSON() passed.\n");
+    else
+        printf("testCSV2JSON() failed!\n");
 
     if (testJSON2XML())
         printf("testJSON2XML() passed.\n");

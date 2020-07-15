@@ -3,7 +3,7 @@
 
 #include "parser/uconfigfile_metadata.h"
 #include "parser/uconfigini.h"
-#include "parser/uconfig2dtable.h"
+#include "parser/uconfigcsv.h"
 #include "parser/uconfigjson.h"
 #include "parser/uconfigxml.h"
 
@@ -67,6 +67,29 @@ bool testParser2DTable()
     UconfigFile config;
     if (!Uconfig2DTable::readUconfig(filename, &config,
                                      "\n", NULL, false, true))
+        return false;
+
+    bool success = true;
+    success &=
+        strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_FILENAME).value(),
+               filename) == 0;
+    success &=
+        strcmp(config.metadata.searchKey(UCONFIG_METADATA_KEY_COLDELIM).value(),
+               " ") == 0;
+
+    success &= Uconfig2DTable::writeUconfig(outputFileName, &config);
+
+    return success;
+}
+
+bool testParserCSV()
+{
+    const char* filename = "./SampleConfigs/population.csv";
+    const char* outputFileName = "./SampleConfigs/population.txt";
+
+    UconfigFile config;
+    if (!UconfigCSV::readUconfig(filename, &config,
+                                 "\n", NULL))
         return false;
 
     bool success = true;
@@ -166,6 +189,11 @@ void testParser()
         printf("testParser2DTable() passed.\n");
     else
         printf("testParser2DTable() failed!\n");
+
+    if (testParserCSV())
+        printf("testParserCSV() passed.\n");
+    else
+        printf("testParserCSV() failed!\n");
 
     if (testParserJSON())
         printf("testParserJSON() passed.\n");
