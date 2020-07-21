@@ -58,6 +58,7 @@ bool UconfigXML::readUconfig(const char* filename,
 
     bool success = UconfigXMLPrivate::freadEntry(inputFile,
                                                  config->rootEntry,
+                                                 false,
                                                  skipBlankTextNode) > 0;
 
     if (success)

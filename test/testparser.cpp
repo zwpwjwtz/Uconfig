@@ -23,10 +23,11 @@ bool testParserKeyValue()
                filename) == 0;
     success &=
         config.rootEntry.searchSubentry("GRUB_GFXMODE").keyCount() == 2;
-    success &=
-        strcmp(config.rootEntry.searchSubentry("GRUB_THEME")
-                     .keys()[0].value(),
-               "/boot/grub/themes/deepin/theme.txt") == 0;
+
+    UconfigKeyObject* keyList = config.rootEntry.searchSubentry("GRUB_THEME").keys();
+    success &= strcmp(keyList[0].value(),
+                      "/boot/grub/themes/deepin/theme.txt") == 0;
+    delete[] keyList;
 
     success &= UconfigKeyValue::writeUconfig(outputFileName, &config);
 
@@ -48,12 +49,19 @@ bool testParserINI()
                filename) == 0;
     success &=
         config.rootEntry.searchSubentry("avfilterAudio").subentryCount() == 2;
-    success &=
-        strcmp(config.rootEntry.searchSubentry("capture").searchSubentry("dir")
-                     .keys()[0].value(), "/home/user") == 0;
-    success &=
-        strcmp(config.rootEntry.searchSubentry("decoder").subentries()[0]
-                     .keys()[0].name(), "video\\priority") == 0;
+
+    UconfigKeyObject* keyList = config.rootEntry.searchSubentry("capture")
+                                      .searchSubentry("dir").keys();
+    success &= strcmp(keyList[0].value(), "/home/user") == 0;
+    delete[] keyList;
+
+
+    UconfigEntryObject* entryList = config.rootEntry.searchSubentry("decoder")
+                                          .subentries();
+    keyList = entryList[0].keys();
+    success &= strcmp(keyList[0].name(), "video\\priority") == 0;
+    delete[] keyList;
+    delete[] entryList;
 
     success &= UconfigINI::writeUconfig(outputFileName, &config);
 
@@ -135,6 +143,7 @@ bool testParserJSON()
 
     success &= UconfigJSON::writeUconfig(outputFileName, &config);
 
+    delete[] keyList;
     return success;
 }
 
@@ -171,6 +180,7 @@ bool testParserXML()
 
     success &= UconfigXML::writeUconfig(outputFileName, &config);
 
+    delete[] keyList;
     return success;
 }
 

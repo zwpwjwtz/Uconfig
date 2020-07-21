@@ -30,6 +30,7 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
     // Read INI file and parse its content line by line
     char* buffer;
     char* entryName;
+    UconfigKeyObject* keyList;
     long unsigned int readlen, parsedLen;
     while(!feof(inputFile))
     {
@@ -113,8 +114,10 @@ bool UconfigINI::readUconfig(const char* filename, UconfigFile* config)
             if (tempEntry.type() == UconfigINI::NormalEntry)
             {
                 // Normal entry, use the name of the first key as its name
-                tempSubentry.setName(tempSubentry.keys()[0].name());
+                keyList = tempSubentry.keys();
+                tempSubentry.setName(keyList[0].name());
                 tempEntry.addSubentry(&tempSubentry);
+                delete[] keyList;
             }
             else
             {

@@ -84,7 +84,9 @@ bool testJSON2INI()
         return false;
 
     // Give the outer element a name
-    config.rootEntry.subentries()[0].setName(rootElementName);
+    UconfigEntryObject* entryList = config.rootEntry.subentries();
+    entryList[0].setName(rootElementName);
+    delete[] entryList;
 
     // Export the data to an INI
     return UconfigINI::writeUconfig(outputFileName, &config);
@@ -122,7 +124,9 @@ bool testJSON2XML()
         return false;
 
     // Give the outer element a name
-    config.rootEntry.subentries()[0].setName(rootElementName);
+    UconfigEntryObject* entryList = config.rootEntry.subentries();
+    entryList[0].setName(rootElementName);
+    delete[] entryList;
 
     // Export the data to a XML
     return UconfigXML::writeUconfig(outputFileName, &config);
@@ -149,6 +153,7 @@ bool testXML2JSON()
             config.rootEntry.deleteSubentry("unconvertible");
         }
     }
+    delete[] entryList;
 
     // Export the data to a JSON
     return UconfigJSON::writeUconfig(outputFileName, &config);

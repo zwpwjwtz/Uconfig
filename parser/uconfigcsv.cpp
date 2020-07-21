@@ -83,10 +83,17 @@ bool UconfigCSV::readUconfig(const char* filename,
                                              keyList[k].valueSize());
                     }
                 }
+
+                delete[] valueList;
             }
             if (readColumnNames)
                 rows[0].setName(UCONFIG_IO_CSV_TYPE_HEADER);
+
+            delete[] keyList;
+            delete[] rows;
         }
     }
+    if (entryList)
+        delete[] entryList;
     return true;
 }

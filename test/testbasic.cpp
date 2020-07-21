@@ -47,6 +47,7 @@ bool testEntry()
     success &= newKeys2[1].value() != newKeys[1].value();
     success &= memcmp(newKeys2[1].value(), newKeys[1].value(), 32) == 0;
 
+    delete[] newKeys, newKeys2;
     return success;
 }
 
