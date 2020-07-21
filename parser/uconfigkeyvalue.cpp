@@ -162,9 +162,41 @@ int UconfigKeyValuePrivate::parseExpKeyValue(const char* expression,
     delete keyName;
 
     // Extract value
+    char* pTail;
     int pos2 = pos + strlen(delimiter);
-    key.setType(UconfigKeyValue::ValueType::Raw);
-    key.setValue(&expression[pos2], expressionLength - pos2);
+    using ValueType = UconfigIO::ValueType;
+    ValueType valueType = UconfigIO::guessValueType(&expression[pos2],
+                                                    expressionLength - pos2);
+    switch (valueType)
+    {
+        case ValueType::Chars:
+            // Ignore wrapping quotes when storing
+            key.setValue(&expression[pos2 + 1],
+                         expressionLength - pos2 - sizeof(char) * 2);
+            break;
+        case ValueType::Integer:
+        {
+            // Store the number as an "int"
+            int tempInt = int(strtol(&expression[pos2], &pTail, 0));
+            if (pTail > expression)
+                key.setValue((char*)(&tempInt), sizeof(int));
+            break;
+        }
+        case ValueType::Float:
+        case ValueType::Double:
+        {
+            // Store the number as a "double"
+            double tempDouble = strtod(&expression[pos2], &pTail);
+            if (pTail > expression)
+                key.setValue((char*)(&tempDouble), sizeof(double));
+            break;
+        }
+        case ValueType::Raw:
+        default:
+            key.setValue(&expression[pos2], expressionLength - pos2);
+
+    }
+    key.setType(valueType);
 
     // Assuming the entire expression is parsed
     return expressionLength;
