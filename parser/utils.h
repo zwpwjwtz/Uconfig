@@ -13,6 +13,9 @@ extern int Uconfig_strpos(const char* haystack, const char* needle);
 // (\n, \r or \r\n) in a string
 extern int Uconfig_findLineDelimiter(const char* str);
 
+// Like isspace, applicable to a whole string
+extern bool Uconfig_isspace(const char* str, int length = 1);
+
 // Like strncpy, with a "\0" appended to the destination
 extern char* Uconfig_strncpy (char* dest, const char* src, int count);
 

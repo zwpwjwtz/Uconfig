@@ -37,6 +37,18 @@
 
 bool UconfigXML::readUconfig(const char* filename, UconfigFile* config)
 {
+    return readUconfig(filename, config, true);
+}
+
+bool UconfigXML::writeUconfig(const char* filename, UconfigFile* config)
+{
+    return writeUconfig(filename, config, true);
+}
+
+bool UconfigXML::readUconfig(const char* filename,
+                             UconfigFile* config,
+                             bool skipBlankTextNode)
+{
     if (!config)
         return false;
 
@@ -45,7 +57,8 @@ bool UconfigXML::readUconfig(const char* filename, UconfigFile* config)
         return false;
 
     bool success = UconfigXMLPrivate::freadEntry(inputFile,
-                                                  config->rootEntry) > 0;
+                                                 config->rootEntry,
+                                                 skipBlankTextNode) > 0;
 
     if (success)
     {
@@ -71,7 +84,9 @@ bool UconfigXML::readUconfig(const char* filename, UconfigFile* config)
     return success;
 }
 
-bool UconfigXML::writeUconfig(const char* filename, UconfigFile* config)
+bool UconfigXML::writeUconfig(const char* filename,
+                              UconfigFile* config,
+                              bool forceQuotingValue)
 {
     if (!config)
         return false;
@@ -86,8 +101,9 @@ bool UconfigXML::writeUconfig(const char* filename, UconfigFile* config)
         UconfigEntryObject* entryList = config->rootEntry.subentries();
         for (int i=0; i<config->rootEntry.subentryCount(); i++)
         {
-            success &= UconfigXMLPrivate::fwriteEntry(outputFile,
-                                                      entryList[i]) > 0;
+            success &=
+                UconfigXMLPrivate::fwriteEntry(outputFile, entryList[i],
+                                               0, forceQuotingValue) > 0;
         }
         delete[] entryList;
     }
@@ -143,19 +159,23 @@ bool UconfigXMLKey::parseValue(const char* expression, int length)
     return true;
 }
 
-int UconfigXMLKey::fwriteValue(FILE* file)
+int UconfigXMLKey::fwriteValue(FILE* file, bool forceWrappingQuotes)
 {
+    int length = 0;
     char* buffer = NULL;
 
-    int length = 0;
+    if (ValueType(type()) == ValueType::Chars)
+        forceWrappingQuotes = true;
+
+    if (forceWrappingQuotes)
+    {
+        // Put an opening quote if required
+        fputc(UCONFIG_IO_XML_CHAR_STRING, file);
+        length++;
+    }
+
     switch (ValueType(type()))
     {
-        case ValueType::Chars:
-            // Wrap string with quotes
-            fputc(UCONFIG_IO_XML_CHAR_STRING, file);
-            fwrite(value(), valueSize(), sizeof(char), file);
-            fputc(UCONFIG_IO_XML_CHAR_STRING, file);
-            break;
         case ValueType::Integer:
             length = asprintf(&buffer, "%d", *(int*)(value()));
             fwrite(buffer, length, sizeof(char), file);
@@ -168,9 +188,19 @@ int UconfigXMLKey::fwriteValue(FILE* file)
             length = asprintf(&buffer, "%f", *(double*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
+        case ValueType::Chars:
         default:
-            fwrite(value(), valueSize(), sizeof(char), file);
+            length = valueSize();
+            fwrite(value(), length, sizeof(char), file);
     }
+
+    if (forceWrappingQuotes)
+    {
+        // Put a closing quote if required
+        fputc(UCONFIG_IO_XML_CHAR_STRING, file);
+        length++;
+    }
+
     if (buffer)
         free(buffer);
 
@@ -180,7 +210,8 @@ int UconfigXMLKey::fwriteValue(FILE* file)
 
 int UconfigXMLPrivate::freadEntry(FILE* file,
                                   UconfigEntryObject& entry,
-                                  bool inTag)
+                                  bool inTag,
+                                  bool skipBlankTextNode)
 {
     int retValue;
     int parsedLen = 0;
@@ -274,14 +305,17 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
             // Store previous read chars (if any) as a text entry
             if (buffer.size() > 0)
             {
-                tempKey.setName(NULL);
-                tempKey.setType(ValueType::Raw);
-                tempKey.setValue(buffer.data(), buffer.size());
-                tempSubentry.reset();
-                tempSubentry.setType(UconfigXML::TextEntry);
-                tempSubentry.addKey(&tempKey);
-                entry.addSubentry(&tempSubentry);
-
+                if (!skipBlankTextNode ||
+                    !Uconfig_isspace(buffer.data(), buffer.size()))
+                {
+                    tempKey.setName(NULL);
+                    tempKey.setType(ValueType::Raw);
+                    tempKey.setValue(buffer.data(), buffer.size());
+                    tempSubentry.reset();
+                    tempSubentry.setType(UconfigXML::TextEntry);
+                    tempSubentry.addKey(&tempKey);
+                    entry.addSubentry(&tempSubentry);
+                }
                 buffer.clear();
             }
 
@@ -399,7 +433,8 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
 
 bool UconfigXMLPrivate::fwriteEntry(FILE* file,
                                     UconfigEntryObject& entry,
-                                    int level)
+                                    int level,
+                                    bool forceQuotingValue)
 {
     switch (UconfigXML::EntryType(entry.type()))
     {
@@ -419,7 +454,7 @@ bool UconfigXMLPrivate::fwriteEntry(FILE* file,
                        sizeof(char),
                        strlen(UCONFIG_IO_XML_DELIMITER_ATTRIBUTE),
                        file);
-                fwriteEntryKeys(file, entry);
+                fwriteEntryKeys(file, entry, false, forceQuotingValue);
             }
 
             // Then write subentries (if any)
@@ -432,7 +467,8 @@ bool UconfigXMLPrivate::fwriteEntry(FILE* file,
                        file);
 
                 for (int i=0; i<entry.subentryCount(); i++)
-                    fwriteEntry(file, subentryList[i], level + 1);
+                    fwriteEntry(file, subentryList[i],
+                                level + 1, forceQuotingValue);
 
                 // Finally write the closing tag of the entry
                 fwrite(UCONFIG_IO_XML_DELIMITER_TAG_BEGINCLOSE,
@@ -476,7 +512,7 @@ bool UconfigXMLPrivate::fwriteEntry(FILE* file,
                    sizeof(char),
                    strlen(UCONFIG_IO_XML_DELIMITER_XML_BEGIN),
                    file);
-            fwriteEntryKeys(file, entry);
+            fwriteEntryKeys(file, entry, false, forceQuotingValue);
             fwrite(UCONFIG_IO_XML_DELIMITER_XML_END,
                    sizeof(char),
                    strlen(UCONFIG_IO_XML_DELIMITER_XML_END),
@@ -515,7 +551,8 @@ bool UconfigXMLPrivate::fwriteEntry(FILE* file,
 
 bool UconfigXMLPrivate::fwriteEntryKeys(FILE* file,
                                         UconfigEntryObject& entry,
-                                        bool valueOnly)
+                                        bool valueOnly,
+                                        bool forceQuotingValue)
 {
     UconfigXMLKey* keyList = (UconfigXMLKey*)(entry.keys());
     if (!keyList)
@@ -544,7 +581,7 @@ bool UconfigXMLPrivate::fwriteEntryKeys(FILE* file,
         }
 
         // Write the value of the attribute
-        keyList[i].fwriteValue(file);
+        keyList[i].fwriteValue(file, forceQuotingValue);
     }
 
     delete[] keyList;

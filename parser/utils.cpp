@@ -42,6 +42,18 @@ int Uconfig_findLineDelimiter(const char* str)
     return -1;
 }
 
+bool Uconfig_isspace(const char* str, int length)
+{
+    while (length > 0)
+    {
+        str++;
+        if (isspace(*str) != 0)
+            break;
+        length--;
+    }
+    return length > 0;
+}
+
 char* Uconfig_strncpy (char* dest, const char* src, int count)
 {
     dest[count] = '\0';

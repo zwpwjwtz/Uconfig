@@ -22,6 +22,13 @@ public:
                             UconfigFile* config);
     static bool writeUconfig(const char* filename,
                              UconfigFile* config);
+
+    static bool readUconfig(const char* filename,
+                            UconfigFile* config,
+                            bool skipBlankTextNode);
+    static bool writeUconfig(const char* filename,
+                             UconfigFile* config,
+                             bool forceQuotingValue);
 };
 
 #endif // UCONFIGXML_H

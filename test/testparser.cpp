@@ -24,8 +24,9 @@ bool testParserKeyValue()
     success &=
         config.rootEntry.searchSubentry("GRUB_GFXMODE").keyCount() == 2;
     success &=
-        strcmp(config.rootEntry.searchSubentry("GRUB_CMDLINE_LINUX")
-                     .keys()[0].value(), "\"\"") == 0;
+        strcmp(config.rootEntry.searchSubentry("GRUB_THEME")
+                     .keys()[0].value(),
+               "/boot/grub/themes/deepin/theme.txt") == 0;
 
     success &= UconfigKeyValue::writeUconfig(outputFileName, &config);
 
@@ -152,14 +153,14 @@ bool testParserXML()
                filename) == 0;
 
     success &= config.rootEntry.searchSubentry("configBlock", NULL, true)
-                     .subentryCount() == 5;
+                     .subentryCount() == 2;
 
     success &= config.rootEntry.searchSubentry("handler", NULL, true)
                      .keyCount() == 3;
 
     UconfigKeyObject* keyList =
             config.rootEntry.searchSubentry("contents", NULL, true)
-                  .subentries()[1].keys();
+                  .subentries()[0].keys();
     success &=
         strncmp(keyList[0].value(),
                 "\n<add verb=\"*\" path=\"settings.map\" "

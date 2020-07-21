@@ -12,7 +12,7 @@ class UconfigXMLKey : public UconfigKeyObject, public UconfigIO
 public:
     bool parseValue(const char* expression, int length = 0);
 
-    int fwriteValue(FILE* file);
+    int fwriteValue(FILE* file, bool forceWrappingQuotes = true);
 };
 
 class UconfigXMLPrivate
@@ -22,13 +22,16 @@ public:
 
     static int freadEntry(FILE* file,
                           UconfigEntryObject& entry,
-                          bool inTag = false);
+                          bool inTag = false,
+                          bool skipBlankTextNode = true);
     static bool fwriteEntry(FILE* file,
                             UconfigEntryObject& entry,
-                            int level = 0);
+                            int level = 0,
+                            bool forceQuotingValue = false);
     static bool fwriteEntryKeys(FILE* file,
                                 UconfigEntryObject& entry,
-                                bool valueOnly = false);
+                                bool valueOnly = false,
+                                bool forceQuotingValue = false);
 
     static int parseTagAttribute(const char* expression,
                                  UconfigKeyObject& key,
