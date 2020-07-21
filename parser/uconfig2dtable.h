@@ -27,8 +27,7 @@ public:
                             const char* rowDelimiter,
                             const char* columnDelimiter,
                             bool skipEmptyRow = true,
-                            bool skipEmptyColumn = true,
-                            ValueType defaultValueType = ValueType::Raw);
+                            bool skipEmptyColumn = true);
     static bool writeUconfig(const char* filename,
                              UconfigFile* config,
                              const char* rowDelimiter,
@@ -38,8 +37,7 @@ public:
                            UconfigEntryObject& entry,
                            int expressionLength = 0,
                            const char* delimiter = NULL,
-                           bool skipEmptyValue = true,
-                           ValueType defaultType = ValueType::Raw);
+                           bool skipEmptyValue = true);
 };
 
 #endif // UCONFIG2DTABLE_H

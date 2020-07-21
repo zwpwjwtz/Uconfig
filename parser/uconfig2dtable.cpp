@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "uconfig2dtable.h"
 #include "uconfigfile_metadata.h"
@@ -48,8 +49,7 @@ bool Uconfig2DTable::readUconfig(const char* filename,
                                  const char* rowDelimiter,
                                  const char* columnDelimiter,
                                  bool skipEmptyRow,
-                                 bool skipEmptyColumn,
-                                 ValueType defaultValueType)
+                                 bool skipEmptyColumn)
 {
     if (!config)
         return false;
@@ -82,8 +82,7 @@ bool Uconfig2DTable::readUconfig(const char* filename,
             continue;
 
         parseValues(buffer, tempSubentry, readLen,
-                    columnDelimiter, skipEmptyColumn,
-                    defaultValueType);
+                    columnDelimiter, skipEmptyColumn);
 
         if (tempSubentry.keyCount() > 0)
         {
@@ -187,8 +186,7 @@ int Uconfig2DTable::parseValues(const char* expression,
                                 UconfigEntryObject& entry,
                                 int expressionLength,
                                 const char* delimiter,
-                                bool skipEmptyValue,
-                                ValueType defaultType)
+                                bool skipEmptyValue)
 {
     if (!expression)
         return 0;
@@ -218,17 +216,40 @@ int Uconfig2DTable::parseValues(const char* expression,
         if (substrLen > 0 || !skipEmptyValue)
         {
             tempKey.reset();
-            tempKey.setType(defaultType);
-            if (defaultType == ValueType::Chars &&
-                expression[p1] == '"' &&
-                expression[p1 + substrLen - 1] == '"')
+
+            ValueType valueType = guessValueType(&expression[p1], substrLen);
+            char* pTail;
+            switch (valueType)
             {
-                // Ignore wrapping quotes when storing
-                tempKey.setValue(&expression[p1 + 1],
-                                 substrLen - sizeof(char) * 2);
+                case ValueType::Chars:
+                    // Ignore wrapping quotes when storing
+                    tempKey.setValue(&expression[p1 + 1],
+                                     substrLen - sizeof(char) * 2);
+                    break;
+                case ValueType::Integer:
+                {
+                    // Store the number as an "int"
+                    int tempInt = int(strtol(&expression[p1], &pTail, 0));
+                    if (pTail > expression)
+                        tempKey.setValue((char*)(&tempInt), sizeof(int));
+                    break;
+                }
+                case ValueType::Float:
+                case ValueType::Double:
+                {
+                    // Store the number as a "double"
+                    double tempDouble = strtod(&expression[p1], &pTail);
+                    if (pTail > expression)
+                        tempKey.setValue((char*)(&tempDouble), sizeof(double));
+                    break;
+                }
+                case ValueType::Raw:
+                default:
+                    tempKey.setValue(&expression[p1], substrLen);
+
             }
-            else
-                tempKey.setValue(&expression[p1], substrLen);
+            tempKey.setType(valueType);
+
             entry.setType(Uconfig2DTable::Row);
             entry.addKey(&tempKey);
             keyCount++;

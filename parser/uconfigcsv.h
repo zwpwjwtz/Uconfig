@@ -16,8 +16,7 @@ public:
                             const char* rowDelimiter,
                             const char* columnDelimiter,
                             bool readColumnNames = true,
-                            bool readRowNames = true,
-                            ValueType defaultValueType = ValueType::Chars);
+                            bool readRowNames = true);
 };
 
 #endif // UCONFIGCSV_H

@@ -38,13 +38,11 @@ bool UconfigCSV::readUconfig(const char* filename,
                              const char* rowDelimiter,
                              const char* columnDelimiter,
                              bool readColumnNames,
-                             bool readRowNames,
-                             ValueType defaultValueType)
+                             bool readRowNames)
 {
     if (!Uconfig2DTable::readUconfig(filename, config,
                                      rowDelimiter, columnDelimiter,
-                                     true, true,
-                                     defaultValueType))
+                                     true, true))
         return false;
 
     // Extract row names and column names
