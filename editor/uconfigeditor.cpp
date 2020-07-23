@@ -24,8 +24,9 @@
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_BOOL_F "False"
 #define UCONFIG_EDITOR_LISTVIEW_TEXT_MAXLEN 32
 
-#define UCONFIG_EDITOR_FILE_SUFFIX_ALL "All (*.*)(*.*)"
+#define UCONFIG_EDITOR_FILE_SUFFIX_ALL "All (*.*)(*)"
 #define UCONFIG_EDITOR_FILE_SUFFIX_TXT "Plain text (*.txt)(*.txt)"
+#define UCONFIG_EDITOR_FILE_SUFFIX_CSV "CSV (*.csv)(*.csv)"
 #define UCONFIG_EDITOR_FILE_SUFFIX_INI "INI (*.ini)(*.ini)"
 #define UCONFIG_EDITOR_FILE_SUFFIX_JSON "JSON (*.json)(*.json)"
 #define UCONFIG_EDITOR_FILE_SUFFIX_XML "XML (*.xml)(*.xml)"
@@ -52,6 +53,10 @@ UconfigEditor::UconfigEditor(QWidget* parent) :
 
     connect(ui->treeSubentry, SIGNAL(clicked(const QModelIndex&)),
             this, SLOT(onEntryListItemClicked(const QModelIndex&)));
+    connect(&modelEntryList, SIGNAL(itemChanged(QStandardItem*)),
+            this, SLOT(onEntryListItemChanged(QStandardItem*)));
+    connect(&modelKeyList, SIGNAL(itemChanged(QStandardItem*)),
+            this, SLOT(onKeyListItemChanged(QStandardItem*)));
 }
 
 UconfigEditor::~UconfigEditor()
@@ -103,6 +108,7 @@ bool UconfigEditor::loadFile()
     QString filter;
     filter.append(UCONFIG_EDITOR_FILE_SUFFIX_ALL).append(";;")
           .append(UCONFIG_EDITOR_FILE_SUFFIX_TXT).append(";;")
+          .append(UCONFIG_EDITOR_FILE_SUFFIX_CSV).append(";;")
           .append(UCONFIG_EDITOR_FILE_SUFFIX_INI).append(";;")
           .append(UCONFIG_EDITOR_FILE_SUFFIX_JSON).append(";;")
           .append(UCONFIG_EDITOR_FILE_SUFFIX_XML);
@@ -153,6 +159,7 @@ bool UconfigEditor::saveFile(bool forceSavingAs)
         QString filter;
         filter.append(UCONFIG_EDITOR_FILE_SUFFIX_ALL).append(";;")
               .append(UCONFIG_EDITOR_FILE_SUFFIX_TXT).append(";;")
+              .append(UCONFIG_EDITOR_FILE_SUFFIX_CSV).append(";;")
               .append(UCONFIG_EDITOR_FILE_SUFFIX_INI).append(";;")
               .append(UCONFIG_EDITOR_FILE_SUFFIX_JSON).append(";;")
               .append(UCONFIG_EDITOR_FILE_SUFFIX_XML);
@@ -636,8 +643,18 @@ UconfigEditor::on_treeSubentry_customContextMenuRequested(const QPoint &pos)
         connect(action, SIGNAL(triggered(bool)),
                 this, SLOT(onActionDeleteEntry_triggered()));
         menuTreeSubentry->addAction(action);
+
+        action = new QAction("&Rename", this);
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(onActionRenameEntry_triggered()));
+        menuTreeSubentry->addAction(action);
     }
     menuTreeSubentry->exec(QCursor::pos());
+}
+
+void UconfigEditor::on_treeSubentry_doubleClicked(const QModelIndex &index)
+{
+    onActionRenameEntry_triggered();
 }
 
 void
@@ -668,6 +685,11 @@ UconfigEditor::on_listKey_customContextMenuRequested(const QPoint &pos)
         connect(action, SIGNAL(triggered(bool)),
                 this, SLOT(onActionDeleteKey_triggered()));
         menuListKey->addAction(action);
+
+        action = new QAction("&Rename", this);
+        connect(action, SIGNAL(triggered(bool)),
+                this, SLOT(onActionRenameKey_triggered()));
+        menuListKey->addAction(action);
     }
 
     menuListKey->exec(QCursor::pos());
@@ -678,7 +700,12 @@ void UconfigEditor::on_listKey_doubleClicked(const QModelIndex &index)
     if (!index.isValid())
         return;
 
-    if (index.column() == 2)
+    if (index.column() == 0)
+    {
+        // Key name is clicked
+        onActionRenameKey_triggered();
+    }
+    else if (index.column() == 2)
     {
         // Value content is clicked
         UconfigKeyObject* key = modelIndexToKey(index);
@@ -699,7 +726,6 @@ void UconfigEditor::on_listKey_doubleClicked(const QModelIndex &index)
             }
         }
     }
-
 }
 
 void UconfigEditor::onEntryListItemClicked(const QModelIndex& index)
@@ -716,6 +742,38 @@ void UconfigEditor::onEntryListItemClicked(const QModelIndex& index)
     if (currentEntry)
         delete currentEntry;
     currentEntry = entry;
+}
+
+void UconfigEditor::onEntryListItemChanged(QStandardItem* item)
+{
+    // Subentry name has been modified: write it back to UconfigEntryObject
+    QByteArray newName = item->text().toLocal8Bit();
+    modelIndexToEntry(item->index())->setName(newName.constData(),
+                                              newName.size());
+    modified = true;
+}
+
+void UconfigEditor::onKeyListItemChanged(QStandardItem* item)
+{
+    QModelIndex index = item->index();
+    switch (index.column())
+    {
+        case 0:
+        {
+            // Key renamed
+            QByteArray newName = item->text().toLocal8Bit();
+            modelIndexToKey(index)->setName(newName.constData(),
+                                            newName.size());
+            modified = true;
+            break;
+        }
+        case 1:
+            // Type changed: not implemented yet
+            break;
+        case 2:
+            // Value changed: handled in ValueEditorDelegate::setModelData()
+        default:;
+    }
 }
 
 void UconfigEditor::onActionAddSubentry_triggered()
@@ -752,6 +810,22 @@ void UconfigEditor::onActionDeleteEntry_triggered()
     removeEntry(index);
 }
 
+void UconfigEditor::onActionRenameEntry_triggered()
+{
+    QModelIndex index = ui->treeSubentry->currentIndex();
+    if (index.isValid() && index != entryListRoot->index())
+    {
+        ui->treeSubentry->openPersistentEditor(index);
+        QWidget* inlineEditor = ui->treeSubentry->indexWidget(index);
+        if (inlineEditor)
+        {
+            inlineEditor->setFocus();
+            connect(inlineEditor, SIGNAL(editingFinished()),
+                    inlineEditor, SLOT(deleteLater()));
+        }
+    }
+}
+
 void UconfigEditor::onActionAddKey_triggered()
 {
     QModelIndex index = ui->treeSubentry->currentIndex();
@@ -778,3 +852,18 @@ void UconfigEditor::onActionDeleteKey_triggered()
         removeKey(ui->listKey->currentIndex());
 }
 
+void UconfigEditor::onActionRenameKey_triggered()
+{
+    QModelIndex index = ui->listKey->currentIndex();
+    if (index.isValid())
+    {
+        ui->listKey->openPersistentEditor(index);
+        QWidget* inlineEditor = ui->listKey->indexWidget(index);
+        if (inlineEditor)
+        {
+            inlineEditor->setFocus();
+            connect(inlineEditor, SIGNAL(editingFinished()),
+                    inlineEditor, SLOT(deleteLater()));
+        }
+    }
+}

@@ -103,17 +103,22 @@ private slots:
     void on_actionPaste_triggered();
     void on_actionAbout_triggered();
     void on_treeSubentry_customContextMenuRequested(const QPoint &pos);
+    void on_treeSubentry_doubleClicked(const QModelIndex &index);
     void on_listKey_customContextMenuRequested(const QPoint &pos);
     void on_listKey_doubleClicked(const QModelIndex &index);
 
     // Manually connected slots
     void onEntryListItemClicked(const QModelIndex& index);
+    void onEntryListItemChanged(QStandardItem* item);
+    void onKeyListItemChanged(QStandardItem* item);
     void onActionAddSubentry_triggered();
     void onActionDuplicateEntry_triggered();
     void onActionDeleteEntry_triggered();
+    void onActionRenameEntry_triggered();
     void onActionAddKey_triggered();
     void onActionDuplicateKey_triggered();
     void onActionDeleteKey_triggered();
+    void onActionRenameKey_triggered();
 
     friend class ValueEditorDelegate;
 };

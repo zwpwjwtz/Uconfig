@@ -125,6 +125,7 @@ void ValueEditorDelegate::setModelData(QWidget* editor,
         }
         default:;
     }
+    mainEditor->modified = true;
 
     // Then update the displayed value
     mainEditor->updateKey(*key, index.row());
