@@ -46,7 +46,8 @@ SOURCES += main.cpp \
     editor/qhexedit2/commands.cpp \
     editor/qhexedit2/qhexedit.cpp \
     editor/qhexedit2/chunks.cpp \
-    editor/hexeditdialog.cpp
+    editor/hexeditdialog.cpp \
+    editor/valueeditordelegate.cpp
 
 HEADERS  += \
     parser/uconfigentry.h \
@@ -69,7 +70,8 @@ HEADERS  += \
     editor/qhexedit2/qhexedit.h \
     editor/qhexedit2/commands.h \
     editor/qhexedit2/chunks.h \
-    editor/hexeditdialog.h
+    editor/hexeditdialog.h \
+    editor/valueeditordelegate.h
 
 target.path = $${PREFIX}/bin/
 

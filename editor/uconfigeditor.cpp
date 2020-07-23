@@ -4,6 +4,8 @@
 #include <QStack>
 #include "uconfigeditor.h"
 #include "ui_uconfigeditor.h"
+#include "hexeditdialog.h"
+#include "valueeditordelegate.h"
 #include "parser/uconfigini.h"
 #include "parser/uconfigcsv.h"
 #include "parser/uconfigjson.h"
@@ -38,12 +40,14 @@ UconfigEditor::UconfigEditor(QWidget* parent) :
     menuTreeSubentry = NULL;
     menuListKey = NULL;
     hexEditor = NULL;
+    valueEditor = new ValueEditorDelegate(this);
 
     ui->setupUi(this);
     ui->treeSubentry->setModel(&modelEntryList);
     ui->treeSubentry->setHeaderHidden(true);
     ui->treeSubentry->setExpanded(entryListRoot->index(), true);
     ui->listKey->setModel(&modelKeyList);
+    ui->listKey->setItemDelegateForColumn(2, valueEditor);
     updateWindowTitle();
 
     connect(ui->treeSubentry, SIGNAL(clicked(const QModelIndex&)),
@@ -460,9 +464,28 @@ void UconfigEditor::loadKey(const UconfigKeyObject& key)
     itemList.append(new QStandardItem(keyTypeToString(key.type())));
     itemList.append(new QStandardItem(keyValueToString(key)));
     itemList[0]->setIcon(QIcon(":/icons/file.png"));
+    itemList[1]->setEditable(false);
     itemList[2]->setEditable(key.type() != UconfigIO::ValueType::Raw);
 
     modelKeyList.appendRow(itemList);
+}
+
+void UconfigEditor::updateKey(const UconfigKeyObject& key, int row)
+{
+    if (modelKeyList.rowCount() <= row)
+        return;
+
+    static QString rowName;
+    if (key.name())
+        rowName = QByteArray(key.name(), key.nameSize());
+    else
+        rowName = UCONFIG_EDITOR_LISTVIEW_TEXT_NONAME;
+
+    modelKeyList.item(row, 0)->setText(rowName);
+    modelKeyList.item(row, 1)->setText(keyTypeToString(key.type()));
+    modelKeyList.item(row, 2)->setText(keyValueToString(key));
+    modelKeyList.item(row, 2)->
+                        setEditable(key.type() != UconfigIO::ValueType::Raw);
 }
 
 UconfigEntryObject* UconfigEditor::modelIndexToEntry(const QModelIndex& index)
@@ -662,17 +685,17 @@ void UconfigEditor::on_listKey_doubleClicked(const QModelIndex &index)
         if (key->type() == UconfigIO::ValueType::Raw)
         {
             // Launch QHexEdit Dialog
-            if (hexEditor == NULL)
+            if (!hexEditor)
                 hexEditor = new HexEditDialog(this);
             hexEditor->setData(QByteArray(key->value(), key->valueSize()));
             hexEditor->exec();
+
             if (hexEditor->isModified())
             {
                 // Update the value
                 QByteArray newData = hexEditor->getData();
                 key->setValue(newData.constData(), newData.size());
-                modelKeyList.itemFromIndex(index)->
-                                setText(keyValueToString(*key));
+                updateKey(*key, index.row());
             }
         }
     }
@@ -754,3 +777,4 @@ void UconfigEditor::onActionDeleteKey_triggered()
     if (ui->listKey->currentIndex().isValid())
         removeKey(ui->listKey->currentIndex());
 }
+

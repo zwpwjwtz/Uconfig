@@ -4,12 +4,14 @@
 #include <QMainWindow>
 #include <QStandardItemModel>
 #include "parser/uconfigfile.h"
-#include "hexeditdialog.h"
 
 
 namespace Ui {
 class UconfigEditor;
 }
+
+class HexEditDialog;
+class ValueEditorDelegate;
 
 class UconfigEditor : public QMainWindow
 {
@@ -63,6 +65,8 @@ private:
     QMenu* menuTreeSubentry;
     QMenu* menuListKey;
     HexEditDialog* hexEditor;
+    ValueEditorDelegate* valueEditor;
+
 
 protected:
     bool modified = false;
@@ -79,6 +83,7 @@ protected:
 
     void loadEntry(QStandardItem* parent, const UconfigEntryObject &entry);
     void loadKey(const UconfigKeyObject& key);
+    void updateKey(const UconfigKeyObject& key, int row);
 
     UconfigEntryObject* modelIndexToEntry(const QModelIndex& item);
     UconfigKeyObject* modelIndexToKey(const QModelIndex& index);
@@ -109,6 +114,8 @@ private slots:
     void onActionAddKey_triggered();
     void onActionDuplicateKey_triggered();
     void onActionDeleteKey_triggered();
+
+    friend class ValueEditorDelegate;
 };
 
 #endif // UCONFIGEDITOR_H
