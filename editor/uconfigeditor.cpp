@@ -114,7 +114,8 @@ bool UconfigEditor::loadFile()
     lastSavingPath = newFileName;
 
     bool success = false;
-    const char* fileNameChars = newFileName.toUtf8().constData();
+    QByteArray encodedFileName = newFileName.toLocal8Bit();
+    const char* fileNameChars = encodedFileName.constData();
     if (newFileName.toLower().endsWith(".ini"))
         success = UconfigINI::readUconfig(fileNameChars, &currentFile);
     else if (newFileName.toLower().endsWith(".csv"))
@@ -167,7 +168,8 @@ bool UconfigEditor::saveFile(bool forceSavingAs)
         lastSavingPath = newFileName;
 
     bool success = false;
-    const char* fileNameChars = newFileName.toUtf8().constData();
+    QByteArray encodedFileName = newFileName.toLocal8Bit();
+    const char* fileNameChars = encodedFileName.constData();
     if (newFileName.toLower().endsWith(".ini"))
         success = UconfigINI::writeUconfig(fileNameChars, &currentFile);
     else if (newFileName.toLower().endsWith(".csv"))
