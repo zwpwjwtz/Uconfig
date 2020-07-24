@@ -47,8 +47,9 @@ bool UconfigCSV::readUconfig(const char* filename,
 
     // Extract row names and column names
     int i, j, k;
-    int keyCount;
-    UconfigKeyObject* keyList;
+    int columnCount;
+    bool* hasColumnName;
+    UconfigKeyObject* firstLine;
     UconfigKeyObject* valueList;
     UconfigEntryObject* entryList = config->rootEntry.subentries();
     UconfigEntryObject* rows;
@@ -61,35 +62,56 @@ bool UconfigCSV::readUconfig(const char* filename,
                 continue;
 
             rows = entryList[i].subentries();
-            keyList = rows[0].keys();
-            keyCount = rows[0].keyCount();
+
+            if (readColumnNames)
+            {
+                // Use the key names of the first line as column names
+                firstLine = rows[0].keys();
+                columnCount = rows[0].keyCount();
+                hasColumnName = new bool[columnCount];
+
+                // Exclude key names of non-char type
+                for (j=0; j<columnCount; j++)
+                {
+                    hasColumnName[j] = firstLine[j].type() == ValueType::Raw ||
+                                       firstLine[j].type() == ValueType::Chars;
+                }
+            }
             for (j=0; j<entryList[i].subentryCount(); j++)
             {
                 if (rows[j].keyCount() < 1)
                     continue;
                 valueList = rows[j].keys();
 
-                if (readRowNames)
+                // Use the name of the first key as the row name
+                if (readRowNames &&
+                    (valueList[0].type() == ValueType::Raw ||
+                     valueList[0].type() == ValueType::Chars))
                     rows[j].setName(valueList[0].value(),
                                     valueList[0].valueSize());
 
+                // Apply column names to each key
                 if (readColumnNames)
                 {
                     for (k=0; k<rows[j].keyCount(); k++)
                     {
-                        if (k >= keyCount)
+                        if (k >= columnCount)
                             break;
-                        valueList[k].setName(keyList[k].value(),
-                                             keyList[k].valueSize());
+                        if (hasColumnName[k])
+                            valueList[k].setName(firstLine[k].value(),
+                                                 firstLine[k].valueSize());
                     }
                 }
 
                 delete[] valueList;
             }
             if (readColumnNames)
+            {
+                // Additional remark for the first row
                 rows[0].setName(UCONFIG_IO_CSV_TYPE_HEADER);
+                delete[] hasColumnName;
+            }
 
-            delete[] keyList;
             delete[] rows;
         }
     }
