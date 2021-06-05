@@ -64,12 +64,12 @@ void UconfigKeyObject::reset()
     refData = NULL;
 
     if (propData.name)
-        delete propData.name;
+        delete[] propData.name;
     propData.name = NULL;
     propData.nameSize = 0;
 
     if (propData.value)
-        delete propData.value;
+        delete[] propData.value;
     propData.value = NULL;
     propData.valueSize = 0;
     propData.valueType = 0;
@@ -92,7 +92,7 @@ void UconfigKeyObject::setName(const char* name, int size)
     UconfigKey& data = refData ? *refData : propData;
 
     if (data.name)
-        delete data.name;
+        delete[] data.name;
 
     if (name)
     {
@@ -142,7 +142,7 @@ void UconfigKeyObject::setValue(const char* value, int size)
     UconfigKey& data = refData ? *refData : propData;
 
     if (data.value)
-        delete data.value;
+        delete[] data.value;
 
     if (value && size > 0)
     {
@@ -185,9 +185,9 @@ bool UconfigKeyObject::copyKey(UconfigKey* dest, const UconfigKey* src)
 void UconfigKeyObject::deleteKey(UconfigKey* key)
 {
     if (key->name)
-        delete key->name;
+        delete[] key->name;
     if (key->value)
-        delete key->value;
+        delete[] key->value;
     delete key;
 }
 
@@ -263,7 +263,7 @@ void UconfigEntryObject::reset()
     refData = NULL;
 
     if (propData.name)
-        delete propData.name;
+        delete[] propData.name;
     propData.name = NULL;
     propData.nameSize = 0;
 
@@ -273,7 +273,7 @@ void UconfigEntryObject::reset()
     {
         for (int i=0; i<propData.keyCount; i++)
             UconfigKeyObject::deleteKey(propData.keys[i]);
-        delete propData.keys;
+        delete[] propData.keys;
     }
     propData.keys = NULL;
     propData.keyCount = 0;
@@ -282,7 +282,7 @@ void UconfigEntryObject::reset()
     {
         for (int i=0; i<propData.subentryCount; i++)
             deleteEntry(propData.subentries[i]);
-        delete propData.subentries;
+        delete[] propData.subentries;
     }
     propData.subentries = NULL;
     propData.subentryCount = 0;
@@ -305,7 +305,7 @@ void UconfigEntryObject::setName(const char* name, int size)
     UconfigEntry& data = refData ? *refData : propData;
 
     if (data.name)
-        delete data.name;
+        delete[] data.name;
 
     if (name)
     {
@@ -422,7 +422,7 @@ bool UconfigEntryObject::addKey(const UconfigKeyObject* newKey)
 
     // Update the key list for the entry
     if (entry.keys)
-        delete entry.keys;
+        delete[] entry.keys;
     entry.keys = newKeyList;
     entry.keyCount++;
 
@@ -448,7 +448,7 @@ bool UconfigEntryObject::deleteKey(const char* keyName, int nameSize)
 
     // Update the key list for the entry
     if (entry.keys)
-        delete entry.keys;
+        delete[] entry.keys;
     entry.keys = newKeyList;
     entry.keyCount--;
 
@@ -589,7 +589,7 @@ bool UconfigEntryObject::addSubentry(const UconfigEntryObject* newEntry)
 
     // Update the list for the parent
     if (entry.subentries)
-        delete entry.subentries;
+        delete[] entry.subentries;
     entry.subentries = newEntryList;
     entry.subentryCount++;
 
@@ -617,7 +617,7 @@ bool UconfigEntryObject::deleteSubentry(const char* entryName, int nameSize)
 
     // Update the list for the parent
     if (entry.subentries)
-        delete entry.subentries;
+        delete[] entry.subentries;
     entry.subentries = newEntryList;
     entry.subentryCount--;
 
@@ -712,18 +712,18 @@ bool UconfigEntryObject::copyEntry(UconfigEntry* dest,
 void UconfigEntryObject::deleteEntry(UconfigEntry* entry)
 {
     if (entry->name)
-        delete entry->name;
+        delete[] entry->name;
     if (entry->keys)
     {
         for (int i=0; i<entry->keyCount; i++)
             UconfigKeyObject::deleteKey(entry->keys[i]);
-        delete entry->keys;
+        delete[] entry->keys;
     }
     if (entry->subentries)
     {
         for (int i=0; i<entry->subentryCount; i++)
             deleteEntry(entry->subentries[i]);
-        delete entry->subentries;
+        delete[] entry->subentries;
     }
     delete entry;
 }
@@ -762,8 +762,8 @@ UconfigKey* Uconfig_searchKeyByName(const char* name,
     UconfigKey* key = NULL;
     for (int i=0; i<entry->keyCount; i++)
     {
-        if (entry->keys[i] &&
-            entry->keys[i]->name &&
+        if (entry->keys[i]->name &&
+            entry->keys[i]->nameSize == nameSize &&
             memcmp(entry->keys[i]->name, name, nameSize) == 0)
         {
             key = entry->keys[i];
@@ -794,6 +794,7 @@ UconfigEntry* Uconfig_searchEntryByName(const char* name,
         for (int i=0; i<parent->subentryCount; i++)
         {
             if (parent->subentries[i]->name &&
+                parent->subentries[i]->nameSize == nameSize &&
                 memcmp(parent->subentries[i]->name, name, nameSize) == 0)
                 return parent->subentries[i];
         }

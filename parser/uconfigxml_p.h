@@ -5,8 +5,6 @@
 
 typedef UconfigIO::ValueType ValueType;
 
-typedef struct _IO_FILE FILE;
-
 class UconfigXMLKey : public UconfigKeyObject, public UconfigIO
 {
 public:

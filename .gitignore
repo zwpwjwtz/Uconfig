@@ -3,4 +3,4 @@ Uconfig
 *.o
 moc*
 ui*.h
-*.pro.user
+*.pro.user*

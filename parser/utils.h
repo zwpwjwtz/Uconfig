@@ -13,6 +13,11 @@ extern int Uconfig_strpos(const char* haystack, const char* needle);
 // (\n, \r or \r\n) in a string
 extern int Uconfig_findLineDelimiter(const char* str);
 
+// Like strstr, but search up to LENGTH bytes
+extern char* Uconfig_strnstr(const char* haystack,
+                             const char* needle,
+                             int length);
+
 // Like isspace, applicable to a whole string
 extern bool Uconfig_isspace(const char* str, int length = 1);
 

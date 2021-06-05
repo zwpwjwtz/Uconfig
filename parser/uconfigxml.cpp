@@ -32,7 +32,8 @@
 #define UCONFIG_IO_XML_DELIMITER_DOCTYPE_BEGIN  "<!DOCTYPE "
 #define UCONFIG_IO_XML_DELIMITER_DOCTYPE_END    ">"
 
-#define UCONFIG_IO_XML_BUFFER_MIN               8
+#define UCONFIG_IO_XML_BUFFER_MAX               1024
+
 
 
 bool UconfigXML::readUconfig(const char* filename, UconfigFile* config)
@@ -76,8 +77,8 @@ bool UconfigXML::readUconfig(const char* filename,
         tempKey.reset();
         tempKey.setName(UCONFIG_METADATA_KEY_FILETYPE);
         tempKey.setType(ValueType::Chars);
-        tempKey.setValue(UCONFIG_METADATA_VALUE_JSON,
-                         strlen(UCONFIG_METADATA_VALUE_JSON) + 1);
+        tempKey.setValue(UCONFIG_METADATA_VALUE_XML,
+                         strlen(UCONFIG_METADATA_VALUE_XML) + 1);
         config->metadata.addKey(&tempKey);
     }
 
@@ -163,7 +164,7 @@ bool UconfigXMLKey::parseValue(const char* expression, int length)
 int UconfigXMLKey::fwriteValue(FILE* file, bool forceWrappingQuotes)
 {
     int length = 0;
-    char* buffer = NULL;
+    char buffer[UCONFIG_IO_XML_BUFFER_MAX];
 
     if (ValueType(type()) == ValueType::Chars)
         forceWrappingQuotes = true;
@@ -178,15 +179,15 @@ int UconfigXMLKey::fwriteValue(FILE* file, bool forceWrappingQuotes)
     switch (ValueType(type()))
     {
         case ValueType::Integer:
-            length = asprintf(&buffer, "%d", *(int*)(value()));
+            length = snprintf(buffer, UCONFIG_IO_XML_BUFFER_MAX, "%d", *(int*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
         case ValueType::Float:
-            length = asprintf(&buffer, "%f", *(float*)(value()));
+            length = snprintf(buffer, UCONFIG_IO_XML_BUFFER_MAX, "%f", *(float*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
         case ValueType::Double:
-            length = asprintf(&buffer, "%f", *(double*)(value()));
+            length = snprintf(buffer, UCONFIG_IO_XML_BUFFER_MAX, "%f", *(double*)(value()));
             fwrite(buffer, length, sizeof(char), file);
             break;
         case ValueType::Chars:
@@ -201,9 +202,6 @@ int UconfigXMLKey::fwriteValue(FILE* file, bool forceWrappingQuotes)
         fputc(UCONFIG_IO_XML_CHAR_STRING, file);
         length++;
     }
-
-    if (buffer)
-        free(buffer);
 
     return length;
 }
@@ -222,7 +220,7 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
     bool closing = false;
     bool parsingString = false;
     char bufferChar;
-    char lastStringDelimitor;
+    char lastStringDelimitor = '\0';
     std::vector<char> buffer, keyName;
     UconfigXMLKey tempKey;
     UconfigEntryObject tempSubentry;
@@ -628,7 +626,7 @@ int UconfigXMLPrivate::parseTagAttribute(const char* expression,
 
         key.reset();
         key.setName(keyName);
-        delete keyName;
+        delete[] keyName;
 
         pos += strlen(UCONFIG_IO_XML_DELIMITER_KEYVAL);
     }
@@ -637,7 +635,7 @@ int UconfigXMLPrivate::parseTagAttribute(const char* expression,
     int pos2 = pos;
     bool end = false;
     bool parsingString = false;
-    char lastStringDelimitor;
+    char lastStringDelimitor = '\0';
     while (pos2 < expressionLength)
     {
         if (parsingString)
@@ -690,7 +688,8 @@ int UconfigXMLPrivate::parseComment(FILE* file,
 
     // Check the opening part of the comment section
     int readLength = Uconfig_fpeekCmp(file,
-                                      UCONFIG_IO_XML_DELIMITER_COMMENT_BEGIN);
+                                      UCONFIG_IO_XML_DELIMITER_COMMENT_BEGIN,
+                                      0);
     if (readLength == 0 || (maxLength > 0  && readLength > maxLength))
         return 0;
 
@@ -718,7 +717,7 @@ int UconfigXMLPrivate::parseComment(FILE* file,
         free(buffer);
 
     // Checking the closing part of the comment section,
-    // even we have already searched for it in Uconfig_getdelim().
+    // even we have already searched for it in utils_getdelim().
 
     if (Uconfig_fpeekCmp(file,
                          UCONFIG_IO_XML_DELIMITER_COMMENT_END,
@@ -747,7 +746,8 @@ int UconfigXMLPrivate::parseCDATA(FILE* file,
         return 0;
 
     int readLength = Uconfig_fpeekCmp(file,
-                                      UCONFIG_IO_XML_DELIMITER_CDATA_BEGIN);
+                                      UCONFIG_IO_XML_DELIMITER_CDATA_BEGIN,
+                                      0);
     if (readLength == 0 || (maxLength > 0  && readLength > maxLength))
         return 0;
 
@@ -790,7 +790,8 @@ int UconfigXMLPrivate::parseXMLDelcaration(FILE* file,
         return 0;
 
     int readLength = Uconfig_fpeekCmp(file,
-                                      UCONFIG_IO_XML_DELIMITER_XML_BEGIN);
+                                      UCONFIG_IO_XML_DELIMITER_XML_BEGIN,
+                                      0);
     if (readLength == 0 || (maxLength > 0  && readLength > maxLength))
         return 0;
 
@@ -810,7 +811,7 @@ int UconfigXMLPrivate::parseXMLDelcaration(FILE* file,
         int pos = 0;
         int attributeLength;
         UconfigKeyObject key;
-        while (true)
+        while (pos < contentLength)
         {
             attributeLength = parseTagAttribute(&buffer[pos],
                                                 key,
@@ -848,7 +849,8 @@ int UconfigXMLPrivate::parseDoctype(FILE* file,
         return 0;
 
     int readLength = Uconfig_fpeekCmp(file,
-                                      UCONFIG_IO_XML_DELIMITER_DOCTYPE_BEGIN);
+                                      UCONFIG_IO_XML_DELIMITER_DOCTYPE_BEGIN,
+                                      0);
     if (readLength == 0 || (maxLength > 0  && readLength > maxLength))
         return 0;
 

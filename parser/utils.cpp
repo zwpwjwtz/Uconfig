@@ -1,7 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <ctype.h>
 #include "utils.h"
 
 #define UCONFIG_UTILS_LINEDELIMITER_UNIX    "\n"
@@ -42,16 +41,27 @@ int Uconfig_findLineDelimiter(const char* str)
     return -1;
 }
 
+char* Uconfig_strnstr(const char* haystack, const char* needle, int length)
+{
+    const char* pos = strstr(haystack, needle);
+    if (pos - haystack + strlen(needle) <= length)
+        return (char*)(pos);
+    else
+        return NULL;
+}
+
 bool Uconfig_isspace(const char* str, int length)
 {
     while (length > 0)
     {
-        str++;
-        if (isspace(*str) != 0)
+        if (*str != ' ' || *str != '\0' ||
+            *str != '\t' || *str != '\v'  ||
+            *str != '\n' || *str != '\r' || *str != '\f')
             break;
+        str++;
         length--;
     }
-    return length > 0;
+    return length == 0;
 }
 
 char* Uconfig_strncpy (char* dest, const char* src, int count)
@@ -81,51 +91,92 @@ int Uconfig_getdelim(char** lineptr, int* n,
 
     char* p1 = *lineptr;
     char* p2 = *lineptr + bufferSize;
-    char* pTail;
     char* newBuffer;
     int newBufferSize;
-    int delimiterLength = strlen(delimiter);
+    int allocationFailed = false;
+
+    long readLength;
+    const long delimiterLength = strlen(delimiter);
+    const long seekLength = UCONFIG_UTILS_FILE_BUFFER_MAX + delimiterLength;
+    char* buffer = (char*)(malloc(seekLength * sizeof(char)));
+    char* pos;
+
     while (true)
     {
-        // Read from stream char by char
-        int c = fgetc(stream);
-        if (c == -1)
-        {
-            if (feof(stream))
-                return p1 == *lineptr ? -1 : p1 - *lineptr;
-            else
-                return -1;
-        }
-        *p1++ = c;
+        readLength = fread(buffer, 1, seekLength, stream);
+        if (readLength <= 0)
+            break;
 
-        // See if there is a delimiter at the end of the buffer
-        pTail = p1 - delimiterLength;
-        if (strstr(pTail, delimiter) == pTail)
+        pos = Uconfig_strnstr(buffer, delimiter, readLength);
+        if (pos)
         {
-            *pTail = '\0';
-            return pTail - *lineptr;
+            // See if we need to increase the size of the buffer
+            if (p1 + (pos - buffer) + 1 >= p2)
+            {
+                if (n != NULL && *n > 0)
+                {
+                    // Size limited by caller; stop reading
+                    Uconfig_strncpy(p1, buffer, p2 - p1 - 1);
+                    p1 = p2;
+                    break;
+                }
+
+                newBufferSize = bufferSize * 2;
+                newBuffer = (char*)(realloc(*lineptr, newBufferSize));
+                if (newBuffer == NULL)
+                {
+                    allocationFailed = true;
+                    break;
+                }
+                p1 += newBuffer - *lineptr;
+                p2 = newBuffer + newBufferSize;
+                *lineptr = newBuffer;
+                bufferSize = newBufferSize;
+            }
+            Uconfig_strncpy(p1, buffer, pos - buffer);
+            p1 += pos - buffer;
+            fseek(stream, pos - buffer + delimiterLength - readLength,
+                  SEEK_CUR);
+            break;
         }
+
+        if (feof(stream))
+            break;
 
         // See if we need to increase the size of the buffer
-        if (p1 + 2 >= p2)
+        if (p1 + readLength - delimiterLength + 1 >= p2)
         {
             if (n != NULL && *n > 0)
             {
                 // Size limited by caller; stop reading
-                *pTail = '\0';
-                return pTail - *lineptr;
+                Uconfig_strncpy(p1, buffer, p2 - p1 - 1);
+                p1 = p2;
+                break;
             }
 
             newBufferSize = bufferSize * 2;
             newBuffer = (char*)(realloc(*lineptr, newBufferSize));
             if (newBuffer == NULL)
-                return -1;
+            {
+                readLength = 0;
+                break;
+            }
             p1 += newBuffer - *lineptr;
             p2 = newBuffer + newBufferSize;
             *lineptr = newBuffer;
             bufferSize = newBufferSize;
         }
+        Uconfig_strncpy(p1, buffer, readLength - delimiterLength);
+        p1 += readLength - delimiterLength;
+        fseek(stream, -delimiterLength, SEEK_CUR);
+
     }
+    free(buffer);
+
+    if (allocationFailed)
+        return -1;
+    else
+        return p1 - *lineptr;
 }
 
 int Uconfig_fpeek(FILE* stream, char* buffer, int n)

@@ -1,4 +1,7 @@
 #include <string.h>
+#ifdef WIN32
+#include <shlwapi.h>
+#endif
 #include "uconfigio.h"
 
 #define UCONFIG_IO_EXPRESSION_CHAR_STRING   '"'
@@ -31,12 +34,21 @@ UconfigIO::guessValueType(const char* expression, int length)
         if (expression[length - 1] == expression[0])
             valueType = ValueType::Chars;
     }
+#ifdef WIN32
+    else if ((length == strlen(UCONFIG_IO_EXPRESSION_BOOL_TRUE) &&
+              StrStrIA(expression,
+                       UCONFIG_IO_EXPRESSION_BOOL_TRUE) == expression) ||
+             (length == strlen(UCONFIG_IO_EXPRESSION_BOOL_FALSE) &&
+              StrStrIA(expression,
+                       UCONFIG_IO_EXPRESSION_BOOL_FALSE) == expression))
+#else
     else if ((length == strlen(UCONFIG_IO_EXPRESSION_BOOL_TRUE) &&
               strcasestr(expression,
                          UCONFIG_IO_EXPRESSION_BOOL_TRUE) == expression) ||
              (length == strlen(UCONFIG_IO_EXPRESSION_BOOL_FALSE) &&
               strcasestr(expression,
                          UCONFIG_IO_EXPRESSION_BOOL_FALSE) == expression))
+#endif
     {
         valueType = ValueType::Bool;
     }

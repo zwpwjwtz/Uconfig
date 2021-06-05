@@ -62,6 +62,7 @@ UconfigEditor::UconfigEditor(QWidget* parent) :
 UconfigEditor::~UconfigEditor()
 {
     delete ui;
+    delete valueEditor;
 
     if (currentEntry)
         delete currentEntry;
@@ -857,6 +858,7 @@ void UconfigEditor::onActionRenameKey_triggered()
     QModelIndex index = ui->listKey->currentIndex();
     if (index.isValid())
     {
+        index = index.sibling(index.row(), 0);
         ui->listKey->openPersistentEditor(index);
         QWidget* inlineEditor = ui->listKey->indexWidget(index);
         if (inlineEditor)
