@@ -99,6 +99,7 @@ public:
                                       int parentNameSize = 0);
 
     bool addSubentry(const UconfigEntryObject *newEntry);
+    bool appendSubentry(UconfigEntryObject* newEntry);
     bool deleteSubentry(const char* entryName, int nameSize = 0);
     bool modifySubentry(const UconfigEntryObject* newEntry,
                         const char* entryName,
@@ -114,7 +115,7 @@ public:
     static void deleteEntry(UconfigEntry* entry);
 
 protected:
-    UconfigEntry propData;
+    UconfigEntry* propData;
     UconfigEntry* refData;
 
     void initialize();

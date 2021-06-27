@@ -245,7 +245,7 @@ bool UconfigJSONEntry::parseName(const char* expression, int length)
 
 int UconfigJSONEntry::fwriteName(FILE *file)
 {
-    const UconfigEntry& data = refData ? *refData : propData;
+    const UconfigEntry& data = refData ? *refData : *propData;
 
     fputc(UCONFIG_IO_JSON_CHAR_STRING, file);
     fwrite(data.name, sizeof(char), data.nameSize, file);
@@ -343,7 +343,7 @@ int UconfigJSONPrivate::freadEntry(FILE* file,
             else
             {
                 tempSubentry.parseName(elementName.data(), elementName.size());
-                entry.addSubentry(&tempSubentry);
+                entry.appendSubentry(&tempSubentry);
             }
 
             tempKey.reset();

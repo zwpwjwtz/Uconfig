@@ -222,7 +222,8 @@ UconfigEntryObject::UconfigEntryObject(UconfigEntry* entry,
         if (copy)
         {
             setReference(NULL);
-            copyEntry(&propData, entry, subentries);
+            propData = new UconfigEntry;
+            copyEntry(propData, entry, subentries);
         }
         else
         {
@@ -237,15 +238,20 @@ UconfigEntryObject::UconfigEntryObject(UconfigEntry* entry,
 UconfigEntryObject::UconfigEntryObject(const UconfigEntryObject& entry)
 {
     setReference(NULL);
+    propData = new UconfigEntry;
     if (entry.refData)
-        copyEntry(&propData, entry.refData);
+        copyEntry(propData, entry.refData);
     else
-        copyEntry(&propData, &entry.propData);
+        copyEntry(propData, entry.propData);
 }
 
 UconfigEntryObject::~UconfigEntryObject()
 {
-    reset();
+    if (propData)
+    {
+        reset();
+        delete propData;
+    }
 }
 
 UconfigEntryObject&
@@ -254,55 +260,50 @@ UconfigEntryObject::operator=(const UconfigEntryObject& entry)
     if (entry.refData)
         setReference(entry.refData);
     else
-        setReference(const_cast<UconfigEntry*>(&entry.propData));
+        setReference(const_cast<UconfigEntry*>(entry.propData));
     return *this;
 }
 
 void UconfigEntryObject::reset()
 {
-    refData = NULL;
-
-    if (propData.name)
-        delete[] propData.name;
-    propData.name = NULL;
-    propData.nameSize = 0;
-
-    propData.type = 0;
-
-    if (propData.keys)
+    // Free manually allocated memory before re-initialization
+    if (propData)
     {
-        for (int i=0; i<propData.keyCount; i++)
-            UconfigKeyObject::deleteKey(propData.keys[i]);
-        delete[] propData.keys;
+        if (propData->name)
+            delete[] propData->name;
+        if (propData->keys)
+        {
+            for (int i=0; i<propData->keyCount; i++)
+                UconfigKeyObject::deleteKey(propData->keys[i]);
+            delete[] propData->keys;
+        }
+        if (propData->subentries)
+        {
+            for (int i=0; i<propData->subentryCount; i++)
+                deleteEntry(propData->subentries[i]);
+            delete[] propData->subentries;
+        }
+        delete propData;
     }
-    propData.keys = NULL;
-    propData.keyCount = 0;
 
-    if (propData.subentries)
-    {
-        for (int i=0; i<propData.subentryCount; i++)
-            deleteEntry(propData.subentries[i]);
-        delete[] propData.subentries;
-    }
-    propData.subentries = NULL;
-    propData.subentryCount = 0;
+    initialize();
 }
 
 const char* UconfigEntryObject::name() const
 {
-    const UconfigEntry& data = refData ? *refData : propData;
+    const UconfigEntry& data = refData ? *refData : *propData;
     return data.name;
 }
 
 int UconfigEntryObject::nameSize() const
 {
-    const UconfigEntry& data = refData ? *refData : propData;
+    const UconfigEntry& data = refData ? *refData : *propData;
     return data.nameSize;
 }
 
 void UconfigEntryObject::setName(const char* name, int size)
 {
-    UconfigEntry& data = refData ? *refData : propData;
+    UconfigEntry& data = refData ? *refData : *propData;
 
     if (data.name)
         delete[] data.name;
@@ -328,25 +329,25 @@ void UconfigEntryObject::setName(const char* name, int size)
 
 int UconfigEntryObject::type() const
 {
-    const UconfigEntry& data = refData ? *refData : propData;
+    const UconfigEntry& data = refData ? *refData : *propData;
     return data.type;
 }
 
 void UconfigEntryObject::setType(int type)
 {
-    UconfigEntry& data = refData ? *refData : propData;
+    UconfigEntry& data = refData ? *refData : *propData;
     data.type = type;
 }
 
 int UconfigEntryObject::keyCount() const
 {
-    const UconfigEntry& data = refData ? *refData : propData;
+    const UconfigEntry& data = refData ? *refData : *propData;
     return data.keyCount;
 }
 
 UconfigKeyObject* UconfigEntryObject::keys()
 {
-    UconfigEntry& data = refData ? *refData : propData;
+    UconfigEntry& data = refData ? *refData : *propData;
     if (data.keyCount < 1)
         return NULL;
 
@@ -363,7 +364,7 @@ bool UconfigEntryObject::existKey(const char* keyName, int nameSize) const
     if (nameSize <= 0)
         nameSize = strlen(keyName) + 1;
 
-    const UconfigEntry& entry = refData ? *refData : propData;
+    const UconfigEntry& entry = refData ? *refData : *propData;
 
     for (int i=0; i<entry.keyCount; i++)
     {
@@ -385,7 +386,7 @@ UconfigKeyObject UconfigEntryObject::searchKey(const char* keyName,
     if (nameSize <= 0)
         nameSize = strlen(keyName) + 1;
 
-    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry& entry = refData ? *refData : *propData;
 
     UconfigKey* key = NULL;
     for (int i=0; i<entry.keyCount; i++)
@@ -403,7 +404,7 @@ UconfigKeyObject UconfigEntryObject::searchKey(const char* keyName,
 }
 bool UconfigEntryObject::addKey(const UconfigKeyObject* newKey)
 {
-    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry& entry = refData ? *refData : *propData;
 
     // Create a new list for the keys
     int keyCount = entry.keyCount;
@@ -431,7 +432,7 @@ bool UconfigEntryObject::addKey(const UconfigKeyObject* newKey)
 
 bool UconfigEntryObject::deleteKey(const char* keyName, int nameSize)
 {
-    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry& entry = refData ? *refData : *propData;
     UconfigKey* key = Uconfig_searchKeyByName(keyName, &entry, nameSize);
     if (!key)
         return false;
@@ -459,7 +460,7 @@ bool UconfigEntryObject::modifyKey(const UconfigKeyObject* newKey,
                                    const char* keyName,
                                    int nameSize)
 {
-    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry& entry = refData ? *refData : *propData;
     UconfigKey* key = Uconfig_searchKeyByName(keyName, &entry, nameSize);
     if (!key)
         return false;
@@ -488,13 +489,13 @@ bool UconfigEntryObject::modifyKey(const UconfigKeyObject* newKey,
 
 int UconfigEntryObject::subentryCount() const
 {
-    const UconfigEntry& entry = refData ? *refData : propData;
+    const UconfigEntry& entry = refData ? *refData : *propData;
     return entry.subentryCount;
 }
 
 UconfigEntryObject* UconfigEntryObject::subentries()
 {
-    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry& entry = refData ? *refData : *propData;
     if (entry.subentryCount < 1)
         return NULL;
 
@@ -508,7 +509,7 @@ UconfigEntryObject* UconfigEntryObject::subentries()
 bool UconfigEntryObject::existSubentry(const char* entryName,
                                        int nameSize) const
 {
-    const UconfigEntry* entry = refData ? refData : &propData;
+    const UconfigEntry* entry = refData ? refData : propData;
 
     if (!entry)
         return false;
@@ -535,7 +536,7 @@ UconfigEntryObject::searchSubentry(const char* entryName,
 {
     UconfigEntryObject entryObject;
 
-    UconfigEntry* entry = refData ? refData : &propData;
+    UconfigEntry* entry = refData ? refData : propData;
     UconfigEntry* parent;
     if (parentName)
     {
@@ -568,7 +569,7 @@ UconfigEntryObject::searchSubentry(const char* entryName,
 
 bool UconfigEntryObject::addSubentry(const UconfigEntryObject* newEntry)
 {
-    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry& entry = refData ? *refData : *propData;
 
     // Create a new list for the subentries
     int entryCount = entry.subentryCount;
@@ -580,7 +581,7 @@ bool UconfigEntryObject::addSubentry(const UconfigEntryObject* newEntry)
 
     // Insert the new entry into the list
     const UconfigEntry* newData =
-                    newEntry->refData ? newEntry->refData : &newEntry->propData;
+                    newEntry->refData ? newEntry->refData : newEntry->propData;
     newEntryList[entryCount] = new UconfigEntry;
     if (!copyEntry(newEntryList[entryCount], newData, true))
         return false;
@@ -596,9 +597,40 @@ bool UconfigEntryObject::addSubentry(const UconfigEntryObject* newEntry)
     return true;
 }
 
+bool UconfigEntryObject::appendSubentry(UconfigEntryObject* newEntry)
+{
+    UconfigEntry& entry = refData ? *refData : *propData;
+
+    // Create a new list for the subentries
+    int entryCount = entry.subentryCount;
+    UconfigEntry** newEntryList = new UconfigEntry*[entryCount + 1];
+    if (entryCount > 0)
+        memcpy(newEntryList,
+               entry.subentries,
+               sizeof(UconfigEntry*) * entryCount);
+
+    // Append the entry into the list
+    if (!newEntry->refData)
+    {
+        // Make the original object a reference to the subentry
+        newEntry->refData = newEntry->propData;
+        newEntry->propData = NULL;
+    }
+    newEntryList[entryCount] = newEntry->refData;
+    newEntryList[entryCount]->parentEntry = &entry;
+
+    // Update the list for the parent
+    if (entry.subentries)
+        delete[] entry.subentries;
+    entry.subentries = newEntryList;
+    entry.subentryCount++;
+
+    return true;
+}
+
 bool UconfigEntryObject::deleteSubentry(const char* entryName, int nameSize)
 {
-    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry& entry = refData ? *refData : *propData;
     UconfigEntry* subentry =
                     Uconfig_searchEntryByName(entryName, &entry, nameSize);
     if (!subentry)
@@ -628,7 +660,7 @@ bool UconfigEntryObject::modifySubentry(const UconfigEntryObject* newEntry,
                                         const char* entryName,
                                         int nameSize)
 {
-    UconfigEntry& entry = refData ? *refData : propData;
+    UconfigEntry& entry = refData ? *refData : *propData;
     UconfigEntry* subentry =
                     Uconfig_searchEntryByName(entryName, &entry, nameSize);
     if (!subentry)
@@ -636,7 +668,7 @@ bool UconfigEntryObject::modifySubentry(const UconfigEntryObject* newEntry,
 
     // Duplicate the given entry
     const UconfigEntry* newData =
-                    newEntry->refData ? newEntry->refData : &newEntry->propData;
+                    newEntry->refData ? newEntry->refData : newEntry->propData;
     UconfigEntry* tempEntry = new UconfigEntry;
     if (!copyEntry(tempEntry, newData, true))
         return false;
@@ -659,7 +691,7 @@ bool UconfigEntryObject::modifySubentry(const UconfigEntryObject* newEntry,
 
 UconfigEntryObject UconfigEntryObject::parentEntry()
 {
-    UconfigEntry* entry = refData ? refData : &propData;
+    UconfigEntry* entry = refData ? refData : propData;
     return UconfigEntryObject(entry, false);
 }
 
@@ -732,19 +764,22 @@ void UconfigEntryObject::initialize()
 {
     refData = NULL;
 
-    propData.name = NULL;
-    propData.nameSize = 0;
-    propData.type = 0;
-    propData.keyCount = 0;
-    propData.keys = NULL;
-    propData.subentryCount = 0;
-    propData.subentries = NULL;
-    propData.parentEntry = NULL;
+    propData = new UconfigEntry;
+    propData->name = NULL;
+    propData->nameSize = 0;
+    propData->type = 0;
+    propData->keyCount = 0;
+    propData->keys = NULL;
+    propData->subentryCount = 0;
+    propData->subentries = NULL;
+    propData->parentEntry = NULL;
 }
 
 void UconfigEntryObject::setReference(UconfigEntry *reference)
 {
     refData = reference;
+    if (!refData && !propData)
+        propData = new UconfigEntry;
 }
 
 // Find a key with given name under a given entry

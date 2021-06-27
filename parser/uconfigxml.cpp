@@ -38,12 +38,12 @@
 
 bool UconfigXML::readUconfig(const char* filename, UconfigFile* config)
 {
-    return readUconfig(filename, config, true);
+    return readUconfig(filename, config, false);
 }
 
 bool UconfigXML::writeUconfig(const char* filename, UconfigFile* config)
 {
-    return writeUconfig(filename, config, true);
+    return writeUconfig(filename, config, false);
 }
 
 bool UconfigXML::readUconfig(const char* filename,
@@ -313,7 +313,7 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                     tempSubentry.reset();
                     tempSubentry.setType(UconfigXML::TextEntry);
                     tempSubentry.addKey(&tempKey);
-                    entry.addSubentry(&tempSubentry);
+                    entry.appendSubentry(&tempSubentry);
                 }
                 buffer.clear();
             }
@@ -358,18 +358,19 @@ int UconfigXMLPrivate::freadEntry(FILE* file,
                     fseek(file, -1, SEEK_CUR);
                     parsedLen--;
 
-                    retValue = freadEntry(file, tempSubentry, true);
+                    retValue = freadEntry(file, tempSubentry,
+                                          true, skipBlankTextNode);
                     if (retValue > 0)
                     {
                         tempSubentry.setType(UconfigXML::NormalEntry);
-                        entry.addSubentry(&tempSubentry);
+                        entry.appendSubentry(&tempSubentry);
                         parsedLen += retValue;
                     }
                 }
             }
             else
             {
-                entry.addSubentry(&tempSubentry);
+                entry.appendSubentry(&tempSubentry);
                 parsedLen += retValue;
             }
         }
@@ -625,7 +626,7 @@ int UconfigXMLPrivate::parseTagAttribute(const char* expression,
         Uconfig_strncpy(keyName, expression, pos);
 
         key.reset();
-        key.setName(keyName);
+        key.setName(keyName, pos);
         delete[] keyName;
 
         pos += strlen(UCONFIG_IO_XML_DELIMITER_KEYVAL);
